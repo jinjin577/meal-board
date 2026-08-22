@@ -408,6 +408,128 @@ h2{font-size:18px;margin:0}
   .duo-cell .title{font-size:13px}
 }
 </style>
+
+<style>
+#homeMeals .duo-board{box-shadow:0 8px 28px rgba(39,51,35,.055)}
+.history-check{width:19px;height:19px;accent-color:var(--green);flex:0 0 auto}
+.history-item .history-main{flex:1;min-width:0}
+</style>
+
+<style>
+/* v3.2: distinguish Home meal board from Meal page without changing whole theme */
+#homeMeals .duo-board{
+  background:#fffaf4;
+  border-color:#e7dfd2;
+}
+#homeMeals .duo-head{
+  background:#f6eee2;
+  border-color:#e7dfd2;
+}
+#homeMeals .duo-cell{
+  background:#fffaf4;
+  border-color:#e7dfd2;
+}
+#homeMeals .duo-time{
+  background:#fbf4ea;
+  border-color:#e7dfd2;
+}
+#homeMeals .duo-shared{
+  background:#f3f6e9;
+  border-color:#e7dfd2;
+}
+#mealPlans .duo-board{
+  background:#fff;
+  border-color:#dce5d8;
+}
+#mealPlans .duo-head{
+  background:#eaf2e6;
+  border-color:#dce5d8;
+}
+#mealPlans .duo-cell{
+  background:#fff;
+  border-color:#dce5d8;
+}
+#mealPlans .duo-time{
+  background:#f4f8f1;
+  border-color:#dce5d8;
+}
+#mealPlans .duo-shared{
+  background:#eef5ea;
+  border-color:#dce5d8;
+}
+</style>
+
+<style>
+/* v3.3 palette refinement: remove warm yellow/cream */
+#homeMeals .duo-board{
+  background:#f3f6f7!important;
+  border-color:#dfe6e8!important;
+}
+#homeMeals .duo-head{
+  background:#eaf0f2!important;
+}
+#homeMeals .duo-time{
+  background:#f7f9fa!important;
+}
+#homeMeals .duo-cell{
+  background:#f8fafb!important;
+}
+#homeMeals .duo-shared{
+  background:#eef4f1!important;
+}
+
+#mealPlans .duo-board{
+  background:#f3f7f1!important;
+  border-color:#dde7da!important;
+}
+#mealPlans .duo-head{
+  background:#e8f0e5!important;
+}
+#mealPlans .duo-time{
+  background:#f6f9f5!important;
+}
+#mealPlans .duo-cell{
+  background:#fbfcfa!important;
+}
+#mealPlans .duo-shared{
+  background:#eaf3e7!important;
+}
+</style>
+
+<style>
+/* v3.4 meal table color unification */
+#homeMeals .duo-board,
+#mealPlans .duo-board{
+  background:#f3f6f7!important;
+  border-color:#dfe6e8!important;
+}
+#homeMeals .duo-head,
+#mealPlans .duo-head{
+  background:#eaf0f2!important;
+}
+#homeMeals .duo-time,
+#mealPlans .duo-time{
+  background:#f7f9fa!important;
+}
+#homeMeals .duo-cell,
+#mealPlans .duo-cell{
+  background:#f8fafb!important;
+}
+#homeMeals .duo-shared,
+#mealPlans .duo-shared{
+  background:#f8fafb!important;
+}
+</style>
+
+<style>
+/* v3.5 meal cells white, headers remain cool gray-blue */
+#homeMeals .duo-cell,
+#mealPlans .duo-cell,
+#homeMeals .duo-shared,
+#mealPlans .duo-shared{
+  background:#ffffff!important;
+}
+</style>
 </head>
 <body>
 
@@ -450,7 +572,7 @@ h2{font-size:18px;margin:0}
   <section id="home" class="page active">
     <div class="head"><div><h1>오늘 뭐 먹지? 🍽️</h1><div class="sub">8월 22일 토요일 · 우리 집 Meal Board</div></div><span class="badge">오늘</span></div>
 
-    <div class="card" id="homeMeals"></div>
+    <div id="homeMeals"></div>
 
     <div class="section">
       <div class="section-head"><h2>⚠️ 먼저 먹어주세요</h2><button class="secondary mini go" data-go="fridge">냉장고 보기</button></div>
@@ -764,7 +886,26 @@ function shiftWeek(offset){
   queueSave();
 }
 
+function ensureStateShape(){
+  if(!state || typeof state!=='object') state={};
+  if(!Array.isArray(state.stocks)) state.stocks=[];
+  if(!Array.isArray(state.meals)) state.meals=[];
+  if(!state.shopping || typeof state.shopping!=='object') state.shopping={food:[],daily:[]};
+  if(!Array.isArray(state.shopping.food)) state.shopping.food=[];
+  if(!Array.isArray(state.shopping.daily)) state.shopping.daily=[];
+  if(!Array.isArray(state.purchaseHistory)) state.purchaseHistory=[];
+  if(!('lastUndo' in state)) state.lastUndo=null;
+  if(!('pendingPurchaseId' in state)) state.pendingPurchaseId=null;
+  if(!('pendingMealId' in state)) state.pendingMealId=null;
+  if(!('pendingDeleteId' in state)) state.pendingDeleteId=null;
+  if(!('pendingStockEditId' in state)) state.pendingStockEditId=null;
+  if(!state.fridgeFilter) state.fridgeFilter='전체';
+  if(!state.currentPage) state.currentPage='home';
+  if(!state.selectedDate) state.selectedDate='2026-08-22';
+  if(!state.weekStart) state.weekStart=mondayOf(state.selectedDate);
+}
 function ensureMealDates(){
+  ensureStateShape();
   if(!Array.isArray(state.meals)) state.meals=[];
   state.meals.forEach(m=>{if(!m.date)m.date='2026-08-22'; if(!m.owner)m.owner='yj'});
   if(!state.selectedDate) state.selectedDate='2026-08-22';
@@ -810,6 +951,7 @@ function showUndo(message,undoPayload){
   },5000);
 }
 function addHistory(entry){
+  if(!Array.isArray(state.purchaseHistory)) state.purchaseHistory=[];
   const t=nowStamp();
   state.purchaseHistory.unshift({
     id:Date.now()+Math.random(),
@@ -877,7 +1019,7 @@ function renderDuoBoard(dateStr,interactive=false){
             <button class="danger delete-meal" data-id="${m.id}">삭제</button>
           </div>`:'';
           out+=`<div class="duo-cell">
-            <div class="row" style="align-items:flex-start"><div class="title">${m.name}</div><span class="person-chip">${idx===0?'YJ':'HJ'}</span></div>
+            <div class="title">${m.name}</div>
             <div class="detail">${mealDetailHtml(m)}</div>${mealKcalHtml(m)}${actions}
           </div>`;
         }else{
@@ -971,10 +1113,13 @@ function renderShopping(){
     $('#purchaseHistory').innerHTML=Object.entries(groups).map(([day,items])=>`
       <div class="history-day">${day}</div>
       ${items.map(h=>`<div class="history-item">
-        <div><b>${h.kind==='food'?'🥕':'🧻'} ${h.name} ${fmt(h.qty)}${h.unit}</b><div class="sub">${h.kind==='food'?'식료품':'생필품'}</div></div>
-        <span class="badge">완료</span>
+        <input type="checkbox" class="history-check" data-history-id="${h.id}" checked>
+        <div class="history-main"><b>${h.kind==='food'?'🥕':'🧻'} ${h.name} ${fmt(h.qty)}${h.unit}</b><div class="sub">${h.kind==='food'?'식료품':'생필품'} · 체크 해제 시 장보기로 복구</div></div>
       </div>`).join('')}
     `).join('');
+    $$('.history-check').forEach(c=>c.addEventListener('change',e=>{
+      if(!e.target.checked) restoreFromHistory(e.target.dataset.historyId);
+    }));
   }
 }
 
@@ -1039,6 +1184,7 @@ async function loadRemoteState(){
     $('#syncState').textContent='첫 데이터 저장됨';
   }
   remoteLoading=false;
+  ensureStateShape();
   ensureMealDates();
   renderAll();
 }
@@ -1138,7 +1284,7 @@ function renderWeekOverview(){
   }));
 }
 
-function renderAll(){renderHome();renderMeals();renderFridge();renderShopping()}
+function renderAll(){ensureStateShape();renderHome();renderMeals();renderFridge();renderShopping()}
 function bindMealButtons(){
   $$('.eat-btn').forEach(b=>b.addEventListener('click',()=>openEat(Number(b.dataset.id))));
   $$('.delete-meal').forEach(b=>b.addEventListener('click',()=>deleteMeal(Number(b.dataset.id))));
@@ -1254,8 +1400,7 @@ function onShopCheck(e){
     if(e.target.checked){
       item.done=true;
       addHistory({kind:'daily',name:item.name,qty:item.qty,unit:item.unit});
-      renderAll();queueSave();
-      showUndo(`${item.name} 구매 완료`,{type:'daily',itemId:item.id});
+      renderAll();queueSave();toast(`${item.name} 구매 완료`);
     }
     return;
   }
@@ -1281,34 +1426,103 @@ function openPurchase(item){
   openSheet('purchaseSheet');
 }
 function confirmPurchase(){
-  const item=state.shopping.food.find(x=>x.id===state.pendingPurchaseId);if(!item)return;
-  const storage=$('input[name="storage"]:checked')?.value;if(!storage){toast('보관 위치를 선택해주세요');return}
-  const expiry=$('#purchaseExpiry').value;
+  try{
+    const item=state.shopping.food.find(x=>x.id===state.pendingPurchaseId);
+    if(!item){toast('구매 항목을 찾지 못했어요');return}
 
-  let existing=state.stocks.find(s=>!s.archived && s.name===item.name && s.unit===item.unit && s.storage===storage);
-  let stockId, createdNew=false;
-  if(existing){
-    existing.qty+=item.qty;
-    if(expiry) existing.expiry=expiry;
-    stockId=existing.id;
-  }else{
-    const newStock={id:'s'+Date.now(),name:item.name,qty:item.qty,unit:item.unit,storage,expiry};
-    state.stocks.push(newStock);
-    stockId=newStock.id;
-    createdNew=true;
+    const selected=document.querySelector('input[name="storage"]:checked');
+    if(!selected){toast('보관 위치를 선택해주세요');return}
+    const storage=selected.value;
+    const expiry=$('#purchaseExpiry').value||'';
+
+    let existing=state.stocks.find(s=>!s.archived && s.name===item.name && s.unit===item.unit && s.storage===storage);
+    let stockId=null;
+    let createdNew=false;
+
+    if(existing){
+      existing.qty=Number(existing.qty||0)+Number(item.qty||0);
+      if(expiry) existing.expiry=expiry;
+      stockId=existing.id;
+    }else{
+      const newStock={
+        id:'s'+Date.now(),
+        name:item.name,
+        qty:Number(item.qty||0),
+        unit:item.unit,
+        storage,
+        expiry,
+        archived:false
+      };
+      state.stocks.push(newStock);
+      stockId=newStock.id;
+      createdNew=true;
+    }
+
+    item.done=true;
+    addHistory({
+      kind:'food',
+      name:item.name,
+      qty:item.qty,
+      unit:item.unit,
+      storage,
+      stockId,
+      createdNew
+    });
+
+    state.pendingPurchaseId=null;
+    closeSheets();
+    renderAll();
+    queueSave();
+    toast(`${item.name}을(를) 냉장고에 추가했어요`);
+  }catch(err){
+    console.error(err);
+    alert('구매 완료 처리 중 오류가 발생했어요: '+err.message);
+  }
+}
+
+
+function restoreFromHistory(historyId){
+  const hist=(state.purchaseHistory||[]).find(h=>String(h.id)===String(historyId));
+  if(!hist)return;
+
+  if(hist.kind==='daily'){
+    const item=state.shopping.daily.find(x=>x.name===hist.name && x.qty===hist.qty && x.unit===hist.unit && x.done);
+    if(item) item.done=false;
+    else state.shopping.daily.push({
+      id:Date.now(),
+      name:hist.name,
+      qty:hist.qty,
+      unit:hist.unit,
+      memo:'구매 내역에서 복구',
+      done:false
+    });
   }
 
-  item.done=true;
-  addHistory({kind:'food',name:item.name,qty:item.qty,unit:item.unit,storage,stockId});
-  state.pendingPurchaseId=null;
-  closeSheets();renderAll();queueSave();
-  showUndo(`${item.name} 입고 완료`,{
-    type:'food',
-    itemId:item.id,
-    stockId,
-    qty:item.qty,
-    createdNew
-  });
+  if(hist.kind==='food'){
+    const item=state.shopping.food.find(x=>x.name===hist.name && x.qty===hist.qty && x.unit===hist.unit && x.done);
+    if(item) item.done=false;
+    else state.shopping.food.push({
+      id:Date.now(),
+      name:hist.name,
+      qty:hist.qty,
+      unit:hist.unit,
+      memo:'구매 내역에서 복구',
+      done:false
+    });
+
+    const s=state.stocks.find(x=>x.id===hist.stockId);
+    if(s){
+      if(hist.createdNew){
+        s.archived=true;
+        s.qty=0;
+      }else{
+        s.qty=Math.max(0,s.qty-hist.qty);
+      }
+    }
+  }
+
+  state.purchaseHistory=state.purchaseHistory.filter(h=>String(h.id)!==String(historyId));
+  renderAll();queueSave();toast('장보기 목록으로 복구했어요');
 }
 
 function undoLastPurchase(){
@@ -1439,8 +1653,8 @@ $('#keepDelete').addEventListener('click',()=>restoreAndDelete(false));
 $('#saveShop').addEventListener('click',saveShop);
 $('#undoBtn').addEventListener('click',undoLastPurchase);
 $('#historyToggle').addEventListener('click',()=>{const p=$('#historyPanel');p.classList.toggle('show');$('#historyToggle').textContent=p.classList.contains('show')?'최근 구매 내역 닫기':'최근 구매 내역 보기';});
-$('#confirmPurchase').addEventListener('click',confirmPurchase);
 $('#saveFridge').addEventListener('click',saveFridge);
+$('#confirmPurchase').addEventListener('click',confirmPurchase);
 $('#saveStockEdit').addEventListener('click',saveStockEdit);
 $('#deleteStockBtn').addEventListener('click',deleteCurrentStock);
 
