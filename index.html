@@ -49,6 +49,20 @@
     .ad-upload-card h3{margin:0 0 5px;font-size:14px}.ad-upload-card p{margin:0 0 13px;color:var(--muted);font-size:11.5px;line-height:1.55}
     .ad-file-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ad-file-input{max-width:100%;font-size:12px}
     .ad-file-status{margin-top:10px;padding:9px 10px;border-radius:9px;background:#f1f4f7;color:#687687;font-size:11.5px;line-height:1.45}
+    .ad-file-status.ok{background:#edf8f1;color:#31704a}.ad-file-status.error{background:#fff0ef;color:#a0473e}.ad-file-status.loading{background:#eef5ff;color:#416a9a}
+    .ad-preview{margin-top:14px;border-top:1px solid var(--line);padding-top:13px}
+    .ad-preview.hidden{display:none!important}
+    .ad-preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+    .ad-preview-title{font-size:12.5px;font-weight:850}.ad-preview-meta{font-size:10.5px;color:var(--muted)}
+    .ad-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+    .ad-kpi{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px;min-width:0}
+    .ad-kpi small{display:block;color:var(--muted);font-size:9.5px}.ad-kpi b{display:block;margin-top:3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ad-preview-note{margin-top:8px;font-size:10.5px;color:var(--muted);line-height:1.5}
+    .ad-save-row{display:flex;justify-content:flex-end;gap:7px;margin-top:12px}
+    .ad-save-btn{border:0;border-radius:9px;padding:8px 11px;background:var(--accent);color:#fff;font-size:11px;font-weight:800}.ad-save-btn:disabled{opacity:.45;cursor:not-allowed}
+    .ad-history{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+    .ad-history-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.ad-history-title{font-size:13px;font-weight:850}
+    .ad-history-list{display:grid;gap:6px}.ad-history-item{display:grid;grid-template-columns:96px 80px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:#fbfcfd;font-size:10.5px}.ad-history-item b{font-size:11px}.ad-history-empty{font-size:11px;color:var(--muted);padding:8px 2px}
     .productivity-hub{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px}
     .hub-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 4px 18px rgba(25,31,40,.035);min-width:0}
     .memo-panel{margin:0}
@@ -240,6 +254,8 @@
       .ad-upload-grid{grid-template-columns:1fr}
       .ad-report-view{padding:13px}
       .ad-report-head{margin-bottom:13px}
+      .ad-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .ad-history-item{grid-template-columns:78px 68px minmax(0,1fr);gap:6px}.ad-history-item>span:last-child{grid-column:3}
 
       #plannerApp{display:flex;flex-direction:column}
       #plannerApp .topbar{order:0}
@@ -438,22 +454,31 @@
     <div class="ad-report-head">
       <div>
         <div class="ad-report-title">광고 리포트</div>
-        <div class="ad-report-hint">검색광고 HTML과 GFA Excel 리포트를 날짜별 성과 데이터로 정리합니다.</div>
+        <div class="ad-report-hint">파일은 원본 그대로 저장하지 않고 필요한 성과 데이터만 추출해 Supabase에 저장합니다.</div>
       </div>
     </div>
     <div class="ad-upload-grid">
       <div class="ad-upload-card">
         <h3>검색광고 리포트</h3>
-        <p>대행사에서 받은 일일 검색광고 HTML 파일을 선택하세요.</p>
+        <p>대행사에서 받은 일일 검색광고 HTML 파일을 선택하면 성과 기준일과 핵심 지표를 자동으로 읽습니다.</p>
         <div class="ad-file-row"><input class="ad-file-input" id="searchReportFile" type="file" accept=".html,text/html" /></div>
         <div class="ad-file-status" id="searchReportStatus">선택된 파일이 없습니다.</div>
+        <div class="ad-preview hidden" id="searchReportPreview"></div>
       </div>
       <div class="ad-upload-card">
         <h3>GFA 리포트</h3>
-        <p>대행사에서 받은 주간/월간 GFA Excel 파일을 선택하세요.</p>
-        <div class="ad-file-row"><input class="ad-file-input" id="gfaReportFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" /></div>
+        <p>주간/월간 GFA Excel에서 일자별 성과와 제품별 일자 성과를 자동으로 추출합니다.</p>
+        <div class="ad-file-row"><input class="ad-file-input" id="gfaReportFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" /></div>
         <div class="ad-file-status" id="gfaReportStatus">선택된 파일이 없습니다.</div>
+        <div class="ad-preview hidden" id="gfaReportPreview"></div>
       </div>
+    </div>
+    <div class="ad-history">
+      <div class="ad-history-head">
+        <div class="ad-history-title">최근 저장된 광고 리포트</div>
+        <button class="hub-mini-btn" id="refreshAdHistoryBtn" type="button">새로고침</button>
+      </div>
+      <div class="ad-history-list" id="adHistoryList"><div class="ad-history-empty">광고 리포트 화면을 열면 최근 저장 내역을 불러옵니다.</div></div>
     </div>
   </section>
 
@@ -685,6 +710,7 @@
   </div>
 </dialog>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 (() => {
   const STORAGE_KEY = 'weekly-work-planner-v2';
@@ -734,6 +760,8 @@
   let activeCategories = new Set(data.categories);
   let currentCategory = data.categories[0] || '기타';
   let showCategoryCompleted = false;
+  let pendingSearchImport = null;
+  let pendingGfaImport = null;
 
   const weekView = document.getElementById('weekView'), weekShell = document.getElementById('weekShell'), monthView = document.getElementById('monthView'),
     adReportView = document.getElementById('adReportView'), adReportBtn = document.getElementById('adReportBtn'),
@@ -749,7 +777,11 @@
     taskRecurrence = document.getElementById('taskRecurrence'), taskWeekday = document.getElementById('taskWeekday'),
     taskMonthday = document.getElementById('taskMonthday'), recurrenceSection = document.getElementById('recurrenceSection'),
     recurrenceHint = document.getElementById('recurrenceHint'), deleteTaskBtn = document.getElementById('deleteTaskBtn'),
-    duplicateTaskBtn = document.getElementById('duplicateTaskBtn'), subtaskEditor = document.getElementById('subtaskEditor');
+    duplicateTaskBtn = document.getElementById('duplicateTaskBtn'), subtaskEditor = document.getElementById('subtaskEditor'),
+    searchReportFile = document.getElementById('searchReportFile'), gfaReportFile = document.getElementById('gfaReportFile'),
+    searchReportStatus = document.getElementById('searchReportStatus'), gfaReportStatus = document.getElementById('gfaReportStatus'),
+    searchReportPreview = document.getElementById('searchReportPreview'), gfaReportPreview = document.getElementById('gfaReportPreview'),
+    adHistoryList = document.getElementById('adHistoryList');
 
   function clone(x){return JSON.parse(JSON.stringify(x))}
   function newId(){try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID()}catch(e){}return 'id-'+Date.now()+'-'+Math.random().toString(36).slice(2)}
@@ -1691,6 +1723,169 @@
     });
   }
 
+  function parseNumberText(value){
+    if(value===null||value===undefined)return null;
+    const m=String(value).replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
+    return m?Number(m[0]):null;
+  }
+  function parseIntegerText(value){const n=parseNumberText(value);return n===null?null:Math.round(n)}
+  function parsePercentText(value){return parseNumberText(value)}
+  function safeRatio(a,b,m=1){return (a===null||a===undefined||!b)?null:(Number(a)/Number(b))*m}
+  function formatWon(v){return v===null||v===undefined?'—':Math.round(v).toLocaleString('ko-KR')+'원'}
+  function formatPct(v){return v===null||v===undefined?'—':Number(v).toLocaleString('ko-KR',{maximumFractionDigits:1})+'%'}
+  function normalizeReportDate(v){
+    if(v instanceof Date&&!Number.isNaN(v.getTime()))return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+    const s=String(v??'').trim();
+    const m=s.match(/(20\d{2})[.\/-](\d{1,2})[.\/-](\d{1,2})/);
+    if(!m)throw new Error('날짜 형식을 인식하지 못했습니다: '+s);
+    return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  }
+  async function sha256File(file){
+    const buf=await file.arrayBuffer();
+    const hash=await crypto.subtle.digest('SHA-256',buf);
+    return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  function setAdStatus(el,type,text){el.className='ad-file-status'+(type?' '+type:'');el.textContent=text}
+  function makeKpi(label,value){return `<div class="ad-kpi"><small>${label}</small><b>${value}</b></div>`}
+  function renderImportPreview(container,kind,payload){
+    container.classList.remove('hidden');
+    if(kind==='search'){
+      const total=payload.daily.find(x=>x.media==='TOTAL');
+      const search=payload.daily.find(x=>x.media==='SEARCH');
+      container.innerHTML=`<div class="ad-preview-head"><div class="ad-preview-title">${payload.meta.report_date} 성과 미리보기</div><div class="ad-preview-meta">${payload.meta.file_name}</div></div>
+        <div class="ad-kpi-grid">${makeKpi('통합 광고비',formatWon(total?.spend))}${makeKpi('통합 매출',formatWon(total?.revenue))}${makeKpi('통합 ROAS',formatPct(total?.roas))}${makeKpi('검색 ROAS',formatPct(search?.roas))}</div>
+        <div class="ad-preview-note">검색광고 일별 ${payload.daily.length}행을 저장합니다. 같은 날짜 데이터가 있으면 최신 업로드 내용으로 갱신합니다.</div>
+        <div class="ad-save-row"><button class="ad-save-btn" id="saveSearchReportBtn" type="button">Supabase에 저장</button></div>`;
+      container.querySelector('#saveSearchReportBtn').addEventListener('click',()=>saveAdImport('search'));
+    }else{
+      const latest=payload.daily[payload.daily.length-1];
+      container.innerHTML=`<div class="ad-preview-head"><div class="ad-preview-title">${payload.meta.date_from} ~ ${payload.meta.date_to}</div><div class="ad-preview-meta">${payload.meta.file_name}</div></div>
+        <div class="ad-kpi-grid">${makeKpi('최근일 광고비',formatWon(latest?.spend))}${makeKpi('최근일 매출',formatWon(latest?.revenue))}${makeKpi('최근일 ROAS',formatPct(latest?.roas))}${makeKpi('제품별 일자',payload.products.length.toLocaleString('ko-KR')+'행')}</div>
+        <div class="ad-preview-note">GFA 일별 ${payload.daily.length}행 · 제품별 일자 ${payload.products.length}행을 저장합니다. 중복 날짜는 새로 추가하지 않고 갱신합니다.</div>
+        <div class="ad-save-row"><button class="ad-save-btn" id="saveGfaReportBtn" type="button">Supabase에 저장</button></div>`;
+      container.querySelector('#saveGfaReportBtn').addEventListener('click',()=>saveAdImport('gfa'));
+    }
+  }
+  async function parseSearchReportFile(file){
+    const html=await file.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const allText=doc.body?.innerText||'';
+    let reportDate=null;
+    for(const p of doc.querySelectorAll('p.desc')){
+      const m=(p.textContent||'').match(/(20\d{2}-\d{2}-\d{2})\s*기준/);
+      if(m){reportDate=m[1];break}
+    }
+    if(!reportDate){const m=allText.match(/(20\d{2}-\d{2}-\d{2})\s*통합 기준/);if(m)reportDate=m[1]}
+    if(!reportDate)throw new Error('검색광고 HTML에서 실제 성과 기준일을 찾지 못했습니다.');
+    const daily=[];
+    const sections=[...doc.querySelectorAll('section')];
+    const metricsSection=sections.find(s=>s.querySelector('h2')?.textContent.trim()==='오늘의 종합 성과');
+    if(metricsSection){
+      const metrics={};
+      metricsSection.querySelectorAll('.metric').forEach(box=>{const k=box.querySelector('small')?.textContent.trim(),v=box.querySelector('b')?.textContent.trim();if(k&&v)metrics[k]=v});
+      daily.push({report_date:reportDate,media:'TOTAL',spend:parseIntegerText(metrics['광고비']),revenue:parseIntegerText(metrics['매출']),conversions:parseIntegerText(metrics['전환']),cpc:parseNumberText(metrics['CPC']),roas:parsePercentText(metrics['ROAS']),cpa:parseNumberText(metrics['CPA']),source_type:'SEARCH_HTML'});
+    }
+    const mediaRows=[...doc.querySelectorAll('article.media-row')];
+    const row=mediaRows.find(a=>a.querySelector('.media-name b')?.textContent.trim()==='검색광고');
+    if(!row)throw new Error('검색광고 매체별 성과를 찾지 못했습니다.');
+    const spans=[...row.children].filter(x=>x.tagName==='SPAN').map(x=>x.textContent.trim());
+    if(spans.length<5)throw new Error('검색광고 성과 항목을 읽지 못했습니다.');
+    daily.push({report_date:reportDate,media:'SEARCH',spend:parseIntegerText(spans[0]),conversions:parseIntegerText(spans[1]),revenue:parseIntegerText(spans[2]),roas:parsePercentText(spans[3]),cpa:parseNumberText(spans[4]),source_type:'SEARCH_HTML'});
+    return {daily,products:[],meta:{report_date:reportDate,report_type:'SEARCH_HTML',file_name:file.name,source_hash:await sha256File(file),note:`파싱 성공: 일별 ${daily.length}행`}};
+  }
+  function findSheetHeader(rows,required,maxScan=60){
+    const req=required.map(x=>x.trim());
+    for(let i=0;i<Math.min(rows.length,maxScan);i++){
+      const vals=(rows[i]||[]).map(v=>String(v??'').trim());
+      if(req.every(x=>vals.includes(x)))return i;
+    }
+    throw new Error('필수 헤더를 찾지 못했습니다: '+required.join(', '));
+  }
+  async function parseGfaReportFile(file){
+    if(!window.XLSX)throw new Error('Excel 분석 모듈을 불러오지 못했습니다. 인터넷 연결 후 다시 시도해 주세요.');
+    const workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+    if(!workbook.Sheets['일자별']||!workbook.Sheets['일자 I 제품별_B'])throw new Error('GFA 파일에 필요한 시트(일자별 / 일자 I 제품별_B)가 없습니다.');
+    const dailyRows=XLSX.utils.sheet_to_json(workbook.Sheets['일자별'],{header:1,raw:true,defval:null});
+    const h=findSheetHeader(dailyRows,['기간','노출','클릭','총 비용','총 전환수','구매완료 매출액','ROAS']);
+    const headers=dailyRows[h].map(v=>String(v??'').trim());
+    const col=n=>headers.indexOf(n);
+    const daily=[];
+    for(let i=h+1;i<dailyRows.length;i++){
+      const r=dailyRows[i]||[],period=r[col('기간')];
+      if(String(period??'').trim()==='총합계')break;
+      let date;try{date=normalizeReportDate(period)}catch(e){continue}
+      const impressions=Number(r[col('노출')]||0),clicks=Number(r[col('클릭')]||0),spend=Math.round(Number(r[col('총 비용')]||0)),conversions=Math.round(Number(r[col('총 전환수')]||0)),revenue=Math.round(Number(r[col('구매완료 매출액')]||0));
+      daily.push({report_date:date,media:'GFA',spend,revenue,conversions,impressions,clicks,ctr:safeRatio(clicks,impressions,100),cpc:safeRatio(spend,clicks),cvr:safeRatio(conversions,clicks,100),roas:safeRatio(revenue,spend,100),cpa:safeRatio(spend,conversions),source_type:'GFA_XLSX'});
+    }
+    if(!daily.length)throw new Error('GFA 일자별 데이터를 찾지 못했습니다.');
+    const rawRows=XLSX.utils.sheet_to_json(workbook.Sheets['일자 I 제품별_B'],{header:1,raw:true,defval:null});
+    const rh=findSheetHeader(rawRows,['제품','기간','총 비용','노출','클릭','총 전환수','구매완료 전환 매출액']);
+    const rheaders=rawRows[rh].map(v=>String(v??'').trim());
+    const rc=n=>rheaders.indexOf(n);
+    const agg=new Map();
+    for(let i=rh+1;i<rawRows.length;i++){
+      const r=rawRows[i]||[],product=String(r[rc('제품')]??'').trim();if(!product)continue;
+      let date;try{date=normalizeReportDate(r[rc('기간')])}catch(e){continue}
+      const key=date+'\u0000'+product;
+      if(!agg.has(key))agg.set(key,{report_date:date,media:'GFA',product_name:product,spend:0,revenue:0,conversions:0,impressions:0,clicks:0});
+      const x=agg.get(key);x.spend+=Math.round(Number(r[rc('총 비용')]||0));x.impressions+=Math.round(Number(r[rc('노출')]||0));x.clicks+=Math.round(Number(r[rc('클릭')]||0));x.conversions+=Math.round(Number(r[rc('총 전환수')]||0));x.revenue+=Math.round(Number(r[rc('구매완료 전환 매출액')]||0));
+    }
+    const products=[...agg.values()].sort((a,b)=>a.report_date.localeCompare(b.report_date)||a.product_name.localeCompare(b.product_name,'ko')).map(x=>({...x,ctr:safeRatio(x.clicks,x.impressions,100),cpc:safeRatio(x.spend,x.clicks),cvr:safeRatio(x.conversions,x.clicks,100),roas:safeRatio(x.revenue,x.spend,100),cpa:safeRatio(x.spend,x.conversions)}));
+    const sum=new Map();products.forEach(x=>{if(!sum.has(x.report_date))sum.set(x.report_date,{spend:0,revenue:0,conversions:0,impressions:0,clicks:0});const y=sum.get(x.report_date);['spend','revenue','conversions','impressions','clicks'].forEach(k=>y[k]+=Number(x[k]||0))});
+    for(const d of daily){const y=sum.get(d.report_date);if(!y)throw new Error(`${d.report_date} 제품별 데이터가 없습니다.`);for(const k of ['spend','revenue','conversions','impressions','clicks'])if(Math.round(Number(d[k]||0))!==Math.round(Number(y[k]||0)))throw new Error(`${d.report_date} ${k} 합계 검증에 실패했습니다.`)}
+    const dates=daily.map(x=>x.report_date).sort();
+    return {daily,products,meta:{report_date:dates[dates.length-1],date_from:dates[0],date_to:dates[dates.length-1],report_type:'GFA_XLSX',file_name:file.name,source_hash:await sha256File(file),note:`파싱 성공: ${dates[0]}~${dates[dates.length-1]} / 일별 ${daily.length}행 / 제품별 일자 ${products.length}행`}};
+  }
+  async function adRestUpsert(table,rows,onConflict){
+    if(!rows.length)return;
+    if(!await ensureAuthSession())throw new Error('로그인 세션이 만료되었습니다.');
+    for(let i=0;i<rows.length;i+=300){
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`,{method:'POST',headers:authHeaders({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rows.slice(i,i+300))});
+      if(!res.ok)throw new Error(`${table} 저장 실패 (${res.status}): ${await res.text()}`);
+    }
+  }
+  async function adImportExists(hash){
+    if(!await ensureAuthSession())throw new Error('로그인 세션이 만료되었습니다.');
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/ad_report_imports?source_hash=eq.${encodeURIComponent(hash)}&select=id&limit=1`,{headers:authHeaders()});
+    if(!res.ok)throw new Error('업로드 이력 확인 실패: '+await res.text());
+    return (await res.json()).length>0;
+  }
+  async function saveAdImport(kind){
+    const payload=kind==='search'?pendingSearchImport:pendingGfaImport;if(!payload)return;
+    const btn=(kind==='search'?searchReportPreview:gfaReportPreview).querySelector('.ad-save-btn');if(btn){btn.disabled=true;btn.textContent='저장 중...'}
+    const status=kind==='search'?searchReportStatus:gfaReportStatus;
+    try{
+      if(await adImportExists(payload.meta.source_hash)){setAdStatus(status,'ok','이미 저장된 동일 파일입니다. 데이터는 중복 저장하지 않았습니다.');await loadAdHistory();return}
+      await adRestUpsert('ad_report_daily',payload.daily,'report_date,media');
+      await adRestUpsert('ad_report_product_daily',payload.products||[],'report_date,media,product_name');
+      await adRestUpsert('ad_report_imports',[{report_date:payload.meta.report_date,report_type:payload.meta.report_type,file_name:payload.meta.file_name,source_hash:payload.meta.source_hash,status:'complete',note:payload.meta.note}],'id');
+      setAdStatus(status,'ok',`저장 완료 · ${payload.meta.report_date} 기준`);
+      if(btn)btn.textContent='저장 완료';
+      await loadAdHistory();
+    }catch(err){console.error(err);setAdStatus(status,'error','저장 실패 · '+(err.message||err));if(btn){btn.disabled=false;btn.textContent='다시 저장'}}
+  }
+  async function loadAdHistory(){
+    if(!adHistoryList)return;
+    if(!await ensureAuthSession()){adHistoryList.innerHTML='<div class="ad-history-empty">로그인이 필요합니다.</div>';return}
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/ad_report_imports?select=report_date,report_type,file_name,imported_at,status,note&order=imported_at.desc&limit=12`,{headers:authHeaders()});
+      if(!res.ok)throw new Error(await res.text());
+      const rows=await res.json();
+      if(!rows.length){adHistoryList.innerHTML='<div class="ad-history-empty">아직 저장된 광고 리포트가 없습니다.</div>';return}
+      adHistoryList.innerHTML=rows.map(r=>`<div class="ad-history-item"><b>${r.report_date}</b><span>${r.report_type==='SEARCH_HTML'?'검색광고':'GFA'}</span><span title="${String(r.file_name||'').replace(/"/g,'&quot;')}">${r.file_name||'—'}</span><span>${new Date(r.imported_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span></div>`).join('');
+    }catch(err){console.error(err);adHistoryList.innerHTML='<div class="ad-history-empty">저장 내역을 불러오지 못했습니다.</div>'}
+  }
+  async function handleSearchReportFile(file){
+    pendingSearchImport=null;searchReportPreview.classList.add('hidden');searchReportPreview.innerHTML='';if(!file){setAdStatus(searchReportStatus,'','선택된 파일이 없습니다.');return}
+    setAdStatus(searchReportStatus,'loading','분석 중 · '+file.name);
+    try{pendingSearchImport=await parseSearchReportFile(file);setAdStatus(searchReportStatus,'ok',`분석 완료 · ${pendingSearchImport.meta.report_date} 기준`);renderImportPreview(searchReportPreview,'search',pendingSearchImport)}catch(err){console.error(err);setAdStatus(searchReportStatus,'error','분석 실패 · '+(err.message||err))}
+  }
+  async function handleGfaReportFile(file){
+    pendingGfaImport=null;gfaReportPreview.classList.add('hidden');gfaReportPreview.innerHTML='';if(!file){setAdStatus(gfaReportStatus,'','선택된 파일이 없습니다.');return}
+    setAdStatus(gfaReportStatus,'loading','분석 중 · '+file.name);
+    try{pendingGfaImport=await parseGfaReportFile(file);setAdStatus(gfaReportStatus,'ok',`분석 완료 · ${pendingGfaImport.meta.date_from} ~ ${pendingGfaImport.meta.date_to}`);renderImportPreview(gfaReportPreview,'gfa',pendingGfaImport)}catch(err){console.error(err);setAdStatus(gfaReportStatus,'error','분석 실패 · '+(err.message||err))}
+  }
+
   function render(){
     const isWeek=currentView==='week',isMonth=currentView==='month',isCategory=currentView==='category',isAds=currentView==='ads',completed=currentView==='completed';
     const views=[[weekShell,isWeek],[monthView,isMonth],[categoryView,isCategory],[adReportView,isAds],[completedView,completed]];
@@ -1891,15 +2086,11 @@
     currentView='ads';
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     render();
+    loadAdHistory();
   });
-  document.getElementById('searchReportFile').addEventListener('change',e=>{
-    const file=e.target.files?.[0];
-    document.getElementById('searchReportStatus').textContent=file?`선택됨 · ${file.name}`:'선택된 파일이 없습니다.';
-  });
-  document.getElementById('gfaReportFile').addEventListener('change',e=>{
-    const file=e.target.files?.[0];
-    document.getElementById('gfaReportStatus').textContent=file?`선택됨 · ${file.name}`:'선택된 파일이 없습니다.';
-  });
+  searchReportFile.addEventListener('change',e=>handleSearchReportFile(e.target.files?.[0]));
+  gfaReportFile.addEventListener('change',e=>handleGfaReportFile(e.target.files?.[0]));
+  document.getElementById('refreshAdHistoryBtn').addEventListener('click',loadAdHistory);
   document.getElementById('prevBtn').addEventListener('click',()=>{
     if(currentView==='week') currentDate.setDate(currentDate.getDate()-7);
     else currentDate.setMonth(currentDate.getMonth()-1);
