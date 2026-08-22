@@ -118,6 +118,29 @@ h2{font-size:18px;margin:0}
 .diag-ok{color:#557451}.diag-bad{color:#a65b3a}
 .diag-actions{display:grid;gap:8px;margin-top:10px}
 </style>
+
+<style>
+.stock-actions{display:flex;gap:7px;margin-top:11px}
+.stock-actions button{flex:1}
+.edit-note{font-size:11px;color:#788074;line-height:1.45;margin-top:8px}
+</style>
+
+<style>
+.history-toggle{margin-top:14px}
+.history-panel{display:none;margin-top:10px}
+.history-panel.show{display:block}
+.history-day{font-size:12px;font-weight:800;color:#788074;margin:14px 2px 6px}
+.history-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #e8ebe5}
+.history-item:last-child{border-bottom:0}
+.undo-toast{
+  position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);
+  width:min(calc(100% - 28px),560px);background:#222;color:#fff;border-radius:14px;
+  padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  opacity:0;pointer-events:none;transition:.2s;z-index:60;font-size:12px
+}
+.undo-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+.undo-toast button{border:0;background:#fff;color:#222;border-radius:9px;padding:7px 10px;font-weight:800}
+</style>
 </head>
 <body>
 
@@ -235,6 +258,10 @@ h2{font-size:18px;margin:0}
     <div id="food" class="pane active card"></div>
     <div id="daily" class="pane card"></div>
     <button class="primary full open-shop-add" style="margin-top:14px">＋ 장보기에 추가</button>
+    <button class="secondary full history-toggle" id="historyToggle">최근 구매 내역 보기</button>
+    <div class="history-panel" id="historyPanel">
+      <div class="card" id="purchaseHistory"></div>
+    </div>
   </section>
 </main>
 
@@ -338,6 +365,33 @@ h2{font-size:18px;margin:0}
   <button class="secondary full close-sheet" style="margin-top:12px">닫기</button>
 </div></div>
 
+
+<div class="sheetbg" id="stockEditSheet"><div class="sheet">
+  <h2>식재료 수정</h2>
+  <div class="field"><label>식재료명</label><input id="editStockName"></div>
+  <div class="grid2">
+    <div class="field"><label>수량</label><input id="editStockQty" type="number" step="0.25" min="0"></div>
+    <div class="field"><label>단위</label>
+      <select id="editStockUnit">
+        <option>개</option><option>팩</option><option>봉</option><option>판</option>
+        <option>통</option><option>모</option><option>묶음</option><option>대</option>
+        <option>g</option><option>ml</option>
+      </select>
+    </div>
+  </div>
+  <div class="field"><label>보관 위치</label>
+    <select id="editStockStorage"><option>냉장</option><option>냉동</option><option>실온</option></select>
+  </div>
+  <div class="field"><label>소비기한 (선택)</label><input id="editStockExpiry" type="date"></div>
+  <div class="edit-note">수정한 수량과 보관 정보는 즉시 냉장고 재고에 반영돼요.</div>
+  <div class="sheet-actions">
+    <button class="secondary close-sheet">취소</button>
+    <button class="primary" id="saveStockEdit">수정 저장</button>
+  </div>
+  <button class="danger full" id="deleteStockBtn" style="margin-top:10px">이 식재료 삭제</button>
+</div></div>
+
+<div class="undo-toast" id="undoToast"><span id="undoMessage"></span><button id="undoBtn">실행 취소</button></div>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -383,7 +437,10 @@ let state={
   },
   pendingPurchaseId:null,
   pendingMealId:null,
-  pendingDeleteId:null
+  pendingDeleteId:null,
+  pendingStockEditId:null,
+  purchaseHistory:[],
+  lastUndo:null
 };
 
 const $=s=>document.querySelector(s);
@@ -399,6 +456,35 @@ function daysUntil(date){
   const d=new Date(date+'T00:00:00');
   return Math.round((d-today)/86400000);
 }
+
+function nowStamp(){
+  const d=new Date();
+  return {
+    iso:d.toISOString(),
+    label:`${d.getMonth()+1}/${d.getDate()}`
+  };
+}
+function showUndo(message,undoPayload){
+  state.lastUndo=undoPayload;
+  $('#undoMessage').textContent=message;
+  $('#undoToast').classList.add('show');
+  clearTimeout(showUndo.timer);
+  showUndo.timer=setTimeout(()=>{
+    $('#undoToast').classList.remove('show');
+    state.lastUndo=null;
+  },5000);
+}
+function addHistory(entry){
+  const t=nowStamp();
+  state.purchaseHistory.unshift({
+    id:Date.now()+Math.random(),
+    completedAt:t.iso,
+    dateLabel:t.label,
+    ...entry
+  });
+  if(state.purchaseHistory.length>100) state.purchaseHistory=state.purchaseHistory.slice(0,100);
+}
+
 function toast(msg){
   const t=$('#toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),1800)
@@ -423,7 +509,7 @@ function renderHome(){
     return `<div class="meal"><span class="label">${type}</span><div><div class="title">${m.name}${m.status==='done'?' ✓':''}</div>${detailHtml}${m.kcal?`<span class="meal-kcal">${kcalPrefix} ${m.kcal} kcal</span>`:''}</div></div>`;
   }).join('');
 
-  const exp=state.stocks.map(s=>({...s,d:daysUntil(s.expiry)})).filter(s=>s.d!==null&&s.d<=3).sort((a,b)=>a.d-b.d);
+  const exp=state.stocks.filter(s=>!s.archived).map(s=>({...s,d:daysUntil(s.expiry)})).filter(s=>s.d!==null&&s.d<=3).sort((a,b)=>a.d-b.d);
   $('#expiryList').innerHTML=exp.length?exp.map(s=>`<div class="expiry"><span>${s.name}</span><span class="badge ${s.d<=2?'warn':''}">${s.d===0?'오늘':`D-${s.d}`}</span></div>`).join(''):'<div class="sub">임박한 식재료가 없어요.</div>';
 
   const food=state.shopping.food.filter(x=>!x.done), daily=state.shopping.daily.filter(x=>!x.done);
@@ -464,8 +550,9 @@ function renderMeals(){
   bindMealButtons();
 }
 function renderFridge(){
-  const list=state.stocks.filter(s=>state.fridgeFilter==='전체'||s.storage===state.fridgeFilter);
-  $('#fridgeCount').textContent=state.stocks.length+'종';
+  const activeStocks=state.stocks.filter(s=>!s.archived);
+  const list=activeStocks.filter(s=>state.fridgeFilter==='전체'||s.storage===state.fridgeFilter);
+  $('#fridgeCount').textContent=activeStocks.length+'종';
   $('#stockList').innerHTML=list.length?list.map(s=>{
     const p=plannedQty(s.id), remain=Math.max(0,s.qty-p), d=daysUntil(s.expiry);
     const expiry=d===null?'':` · ${d===0?'오늘까지':d>0?`D-${d}`:'기한 경과'}`;
@@ -473,21 +560,49 @@ function renderFridge(){
       <div class="stocktop"><b>${s.name}</b><strong>${fmt(s.qty)}${s.unit}</strong></div>
       <div class="stockmeta">${s.storage}${expiry}</div>
       ${p>0?`<div class="forecast">사용 예정 ${fmt(p)}${s.unit} → 예상 잔량 <b>${fmt(remain)}${s.unit}</b></div>`:''}
+      <div class="stock-actions">
+        <button class="secondary mini edit-stock" data-id="${s.id}">수정</button>
+      </div>
     </div>`;
   }).join(''):'<div class="card sub">해당 보관 위치에 식재료가 없어요.</div>';
+  $$('.edit-stock').forEach(b=>b.addEventListener('click',()=>openStockEdit(b.dataset.id)));
 }
 function renderShopping(){
-  const food=state.shopping.food, daily=state.shopping.daily;
-  $('#foodTabCount').textContent=food.filter(x=>!x.done).length; $('#dailyTabCount').textContent=daily.filter(x=>!x.done).length;
-  $('#food').innerHTML=food.map(x=>`<div class="shop ${x.done?'done':''}">
-    <input type="checkbox" class="shop-check" data-kind="food" data-id="${x.id}" ${x.done?'checked disabled':''}>
-    <div class="shop-main"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'식료품'}</small></div>${x.done?'<span class="done-badge">입고 완료</span>':''}
-  </div>`).join('')||'<div class="sub">장보기 항목이 없어요.</div>';
-  $('#daily').innerHTML=daily.map(x=>`<div class="shop ${x.done?'done':''}">
-    <input type="checkbox" class="shop-check" data-kind="daily" data-id="${x.id}" ${x.done?'checked':''}>
-    <div class="shop-main"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'생필품'}</small></div>${x.done?'<span class="done-badge">완료</span>':''}
-  </div>`).join('')||'<div class="sub">장보기 항목이 없어요.</div>';
+  const foodAll=state.shopping.food||[], dailyAll=state.shopping.daily||[];
+  const food=foodAll.filter(x=>!x.done), daily=dailyAll.filter(x=>!x.done);
+
+  $('#foodTabCount').textContent=food.length;
+  $('#dailyTabCount').textContent=daily.length;
+
+  $('#food').innerHTML=food.map(x=>`<div class="shop">
+    <input type="checkbox" class="shop-check" data-kind="food" data-id="${x.id}">
+    <div class="shop-main"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'식료품'}</small></div>
+  </div>`).join('')||'<div class="sub">살 식료품이 없어요.</div>';
+
+  $('#daily').innerHTML=daily.map(x=>`<div class="shop">
+    <input type="checkbox" class="shop-check" data-kind="daily" data-id="${x.id}">
+    <div class="shop-main"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'생필품'}</small></div>
+  </div>`).join('')||'<div class="sub">살 생필품이 없어요.</div>';
+
   $$('.shop-check').forEach(c=>c.addEventListener('change',onShopCheck));
+
+  const hist=(state.purchaseHistory||[]).slice(0,30);
+  if(!hist.length){
+    $('#purchaseHistory').innerHTML='<div class="sub">아직 구매 완료 내역이 없어요.</div>';
+  }else{
+    const groups={};
+    hist.forEach(h=>{
+      const key=h.dateLabel||'최근';
+      (groups[key]||(groups[key]=[])).push(h);
+    });
+    $('#purchaseHistory').innerHTML=Object.entries(groups).map(([day,items])=>`
+      <div class="history-day">${day}</div>
+      ${items.map(h=>`<div class="history-item">
+        <div><b>${h.kind==='food'?'🥕':'🧻'} ${h.name} ${fmt(h.qty)}${h.unit}</b><div class="sub">${h.kind==='food'?'식료품':'생필품'}</div></div>
+        <span class="badge">완료</span>
+      </div>`).join('')}
+    `).join('');
+  }
 }
 
 
@@ -660,7 +775,7 @@ function bindMealButtons(){
 }
 function renderIngredientPicker(prefill=[]){
   const selected=new Map(prefill.map(x=>[x.stockId,x.qty]));
-  $('#ingredientPicker').innerHTML=state.stocks.map(s=>{
+  $('#ingredientPicker').innerHTML=state.stocks.filter(s=>!s.archived).map(s=>{
     const q=selected.get(s.id)||0;
     return `<div class="pick">
       <div class="pick-left"><input class="ing-check" type="checkbox" data-id="${s.id}" ${q>0?'checked':''}><div><span class="pick-name">${s.name}</span><span class="pick-meta">재고 ${fmt(s.qty)}${s.unit}</span></div></div>
@@ -736,15 +851,28 @@ function restoreAndDelete(restore){
 function onShopCheck(e){
   const kind=e.target.dataset.kind,id=Number(e.target.dataset.id);
   const item=state.shopping[kind].find(x=>x.id===id);if(!item)return;
-  if(kind==='daily'){item.done=e.target.checked;renderAll();queueSave();toast(item.done?'구매 완료 처리했어요':'완료를 취소했어요');return}
-  if(e.target.checked){e.target.checked=false;openPurchase(item)}
+
+  if(kind==='daily'){
+    if(e.target.checked){
+      item.done=true;
+      addHistory({kind:'daily',name:item.name,qty:item.qty,unit:item.unit});
+      renderAll();queueSave();
+      showUndo(`${item.name} 구매 완료`,{type:'daily',itemId:item.id});
+    }
+    return;
+  }
+
+  if(e.target.checked){
+    e.target.checked=false;
+    openPurchase(item);
+  }
 }
 function openPurchase(item){
   state.pendingPurchaseId=item.id;
   $('#purchaseTitle').textContent=`${item.name}을(를) 구매했나요?`;
   $('#purchaseInfo').textContent=`구매 수량 ${fmt(item.qty)}${item.unit}`;
   $('#purchaseExpiry').value='';
-  const existing=state.stocks.find(s=>s.name===item.name);
+  const existing=state.stocks.find(s=>!s.archived && s.name===item.name);
   $$('input[name="storage"]').forEach(r=>r.checked=false);
   if(existing){
     const radio={냉장:'#sCold',냉동:'#sFrozen',실온:'#sRoom'}[existing.storage]; if(radio)$(radio).checked=true;
@@ -758,27 +886,128 @@ function confirmPurchase(){
   const item=state.shopping.food.find(x=>x.id===state.pendingPurchaseId);if(!item)return;
   const storage=$('input[name="storage"]:checked')?.value;if(!storage){toast('보관 위치를 선택해주세요');return}
   const expiry=$('#purchaseExpiry').value;
-  let existing=state.stocks.find(s=>s.name===item.name && s.unit===item.unit && s.storage===storage);
-  if(existing){existing.qty+=item.qty;if(expiry)existing.expiry=expiry}
-  else state.stocks.push({id:'s'+Date.now(),name:item.name,qty:item.qty,unit:item.unit,storage,expiry});
-  item.done=true;state.pendingPurchaseId=null;closeSheets();renderAll();queueSave();toast('냉장고에 입고했어요');
+
+  let existing=state.stocks.find(s=>!s.archived && s.name===item.name && s.unit===item.unit && s.storage===storage);
+  let stockId, createdNew=false;
+  if(existing){
+    existing.qty+=item.qty;
+    if(expiry) existing.expiry=expiry;
+    stockId=existing.id;
+  }else{
+    const newStock={id:'s'+Date.now(),name:item.name,qty:item.qty,unit:item.unit,storage,expiry};
+    state.stocks.push(newStock);
+    stockId=newStock.id;
+    createdNew=true;
+  }
+
+  item.done=true;
+  addHistory({kind:'food',name:item.name,qty:item.qty,unit:item.unit,storage,stockId});
+  state.pendingPurchaseId=null;
+  closeSheets();renderAll();queueSave();
+  showUndo(`${item.name} 입고 완료`,{
+    type:'food',
+    itemId:item.id,
+    stockId,
+    qty:item.qty,
+    createdNew
+  });
 }
+
+function undoLastPurchase(){
+  const u=state.lastUndo;
+  if(!u)return;
+
+  if(u.type==='daily'){
+    const item=state.shopping.daily.find(x=>x.id===u.itemId);
+    if(item) item.done=false;
+    const idx=(state.purchaseHistory||[]).findIndex(h=>h.kind==='daily' && h.name===item?.name);
+    if(idx>=0) state.purchaseHistory.splice(idx,1);
+  }
+
+  if(u.type==='food'){
+    const item=state.shopping.food.find(x=>x.id===u.itemId);
+    if(item) item.done=false;
+
+    const s=state.stocks.find(x=>x.id===u.stockId);
+    if(s){
+      if(u.createdNew){
+        s.archived=true;
+        s.qty=0;
+      }else{
+        s.qty=Math.max(0,s.qty-u.qty);
+      }
+    }
+
+    const idx=(state.purchaseHistory||[]).findIndex(h=>h.kind==='food' && h.name===item?.name && h.stockId===u.stockId);
+    if(idx>=0) state.purchaseHistory.splice(idx,1);
+  }
+
+  state.lastUndo=null;
+  $('#undoToast').classList.remove('show');
+  renderAll();queueSave();toast('구매 완료를 취소했어요');
+}
+
 function saveShop(){
   const kind=$('#shopType').value,name=$('#shopName').value.trim(),qty=parseFloat($('#shopQty').value),unit=$('#shopUnit').value,memo=$('#shopMemo').value.trim();
   if(!name||!qty){toast('품목과 수량을 입력해주세요');return}
   state.shopping[kind].push({id:Date.now(),name,qty,unit,memo,done:false});
   $('#shopName').value='';$('#shopQty').value='';$('#shopMemo').value='';closeSheets();renderAll();queueSave();toast('장보기에 추가했어요');
 }
+
+function openStockEdit(id){
+  const s=stockById(id); if(!s || s.archived)return;
+  state.pendingStockEditId=id;
+  $('#editStockName').value=s.name;
+  $('#editStockQty').value=s.qty;
+  $('#editStockUnit').value=s.unit;
+  $('#editStockStorage').value=s.storage;
+  $('#editStockExpiry').value=s.expiry||'';
+  openSheet('stockEditSheet');
+}
+function saveStockEdit(){
+  const s=stockById(state.pendingStockEditId); if(!s)return;
+  const name=$('#editStockName').value.trim();
+  const qty=parseFloat($('#editStockQty').value);
+  const unit=$('#editStockUnit').value;
+  const storage=$('#editStockStorage').value;
+  const expiry=$('#editStockExpiry').value;
+  if(!name || Number.isNaN(qty) || qty<0){toast('식재료명과 수량을 확인해주세요');return}
+  s.name=name; s.qty=qty; s.unit=unit; s.storage=storage; s.expiry=expiry;
+  state.pendingStockEditId=null;
+  closeSheets(); renderAll(); queueSave(); toast('식재료를 수정했어요');
+}
+function deleteCurrentStock(){
+  const s=stockById(state.pendingStockEditId); if(!s)return;
+  const plannedRefs=state.meals.filter(m=>m.status==='planned' && m.ingredients?.some(i=>i.stockId===s.id));
+  const msg=plannedRefs.length
+    ? `${s.name}은(는) 예정 식단 ${plannedRefs.length}개에 연결되어 있어요.\\n삭제하면 해당 예정 식단의 재료 연결에서도 제거돼요.\\n\\n삭제할까요?`
+    : `${s.name}을(를) 냉장고에서 삭제할까요?`;
+  if(!confirm(msg))return;
+
+  // Remove from future/planned meal ingredient links so planned stock math stays correct.
+  state.meals.forEach(m=>{
+    if(m.status==='planned' && Array.isArray(m.ingredients)){
+      m.ingredients=m.ingredients.filter(i=>i.stockId!==s.id);
+    }
+  });
+
+  // Archive instead of physically removing so completed meal history can still resolve the ingredient name.
+  s.archived=true;
+  s.qty=0;
+  state.pendingStockEditId=null;
+  closeSheets(); renderAll(); queueSave(); toast('냉장고에서 삭제했어요');
+}
+
 function saveFridge(){
   const name=$('#fridgeName').value.trim(),qty=parseFloat($('#fridgeQty').value),unit=$('#fridgeUnit').value,storage=$('#fridgeStorage').value,expiry=$('#fridgeExpiry').value;
   if(!name||!qty){toast('식재료명과 수량을 입력해주세요');return}
-  let existing=state.stocks.find(s=>s.name===name&&s.unit===unit&&s.storage===storage);
+  let existing=state.stocks.find(s=>!s.archived && s.name===name&&s.unit===unit&&s.storage===storage);
   if(existing){existing.qty+=qty;if(expiry)existing.expiry=expiry}
   else state.stocks.push({id:'s'+Date.now(),name,qty,unit,storage,expiry});
   $('#fridgeName').value='';$('#fridgeQty').value='';$('#fridgeExpiry').value='';closeSheets();renderAll();queueSave();toast('냉장고에 추가했어요');
 }
 function renderRecommendations(){
-  const have=id=>stockById(id)&&stockById(id).qty>0;
+  const have=id=>{const s=stockById(id);return s&&!s.archived&&s.qty>0};
   const recs=[];
   if(have('cabbage')&&have('beef')&&have('enoki')) recs.push({name:'우삼겹 배추찜',tag:'임박 재료 우선',kcal:580,ingredients:[{stockId:'cabbage',qty:.25},{stockId:'beef',qty:200},{stockId:'enoki',qty:1}]});
   if(have('egg')&&have('kimchi')) recs.push({name:'계란 김치볶음밥',tag:'간단 메뉴',kcal:520,ingredients:[{stockId:'egg',qty:2},{stockId:'kimchi',qty:150}]});
@@ -801,8 +1030,12 @@ $('#confirmEat').addEventListener('click',confirmEat);
 $('#restoreDelete').addEventListener('click',()=>restoreAndDelete(true));
 $('#keepDelete').addEventListener('click',()=>restoreAndDelete(false));
 $('#saveShop').addEventListener('click',saveShop);
+$('#undoBtn').addEventListener('click',undoLastPurchase);
+$('#historyToggle').addEventListener('click',()=>{const p=$('#historyPanel');p.classList.toggle('show');$('#historyToggle').textContent=p.classList.contains('show')?'최근 구매 내역 닫기':'최근 구매 내역 보기';});
 $('#confirmPurchase').addEventListener('click',confirmPurchase);
 $('#saveFridge').addEventListener('click',saveFridge);
+$('#saveStockEdit').addEventListener('click',saveStockEdit);
+$('#deleteStockBtn').addEventListener('click',deleteCurrentStock);
 
 
 
