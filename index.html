@@ -110,6 +110,14 @@ h2{font-size:18px;margin:0}
 .hidden{display:none!important}
 
 </style>
+
+<style>
+.diag-box{margin-top:14px;border:1px solid #e3e7df;border-radius:14px;background:#fafbf9;padding:12px}
+.diag-title{font-size:12px;font-weight:800;margin-bottom:8px}
+.diag-line{font-size:11px;color:#667064;line-height:1.55;word-break:break-all}
+.diag-ok{color:#557451}.diag-bad{color:#a65b3a}
+.diag-actions{display:grid;gap:8px;margin-top:10px}
+</style>
 </head>
 <body>
 
@@ -123,6 +131,14 @@ h2{font-size:18px;margin:0}
         <button class="primary full" id="createBoardBtn">새 Meal Board 만들기</button>
         <button class="secondary full" id="showJoinBtn">공유 코드로 연결</button>
       </div>
+      <div class="diag-box">
+        <div class="diag-title">연결 진단</div>
+        <div id="diagResult" class="diag-line">아직 진단하지 않았어요.</div>
+        <div class="diag-actions">
+          <button class="secondary full" id="runDiagBtn">Supabase 연결 진단</button>
+        </div>
+      </div>
+
       <div class="auth-note">별도 이메일 로그인 없이 이 기기에 연결 상태가 유지돼요.</div>
     </div>
 
@@ -471,7 +487,7 @@ async function ensureAnonymousSession(){
   }
   const {data,error}=await sb.auth.signInAnonymously();
   if(error){
-    alert('기기 연결 준비에 실패했어요: '+error.message);
+    alert('기기 연결 준비에 실패했어요: '+error.message+'\n\n아래 연결 진단 버튼을 눌러 상세 오류를 확인해주세요.');
     return false;
   }
   currentUser=data.user;
@@ -529,6 +545,37 @@ async function enterConnectedBoard(){
   $('#connectScreen').style.display='none';
   $('#appRoot').style.display='block';
   await loadRemoteState();
+}
+
+async function runDiagnostics(){
+  const out=[];
+  const show=()=>{$('#diagResult').innerHTML=out.join('<br>')};
+  out.push('1) Project URL: '+SUPABASE_URL); show();
+  try{
+    const r=await fetch(SUPABASE_URL+'/auth/v1/settings',{
+      method:'GET',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}
+    });
+    out.push((r.ok?'✅':'⚠️')+' 2) Auth settings HTTP '+r.status);
+    const txt=await r.text();
+    out.push('응답: '+txt.slice(0,220));
+  }catch(e){
+    out.push('❌ 2) Auth settings 요청 실패: '+e.name+' / '+e.message);
+    show(); return;
+  }
+  show();
+  try{
+    const {data,error}=await sb.auth.signInAnonymously();
+    if(error){
+      out.push('❌ 3) Anonymous Sign-In 오류: '+(error.status||'')+' '+error.name+' / '+error.message);
+    }else{
+      out.push('✅ 3) Anonymous Sign-In 성공');
+      currentUser=data.user;
+    }
+  }catch(e){
+    out.push('❌ 3) Anonymous Sign-In 예외: '+e.name+' / '+e.message);
+  }
+  show();
 }
 async function initConnection(){
   const ok=await ensureAnonymousSession();
@@ -726,6 +773,7 @@ $('#saveFridge').addEventListener('click',saveFridge);
 
 
 
+$('#runDiagBtn').addEventListener('click',runDiagnostics);
 $('#createBoardBtn').addEventListener('click',createHousehold);
 $('#showJoinBtn').addEventListener('click',()=>{
   $('#connectStart').classList.add('hidden');
