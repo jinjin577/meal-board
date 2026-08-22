@@ -548,6 +548,13 @@ h2{font-size:18px;margin:0}
   border-color:#e3e7df!important;
 }
 </style>
+
+<style>
+.duo-actions{grid-template-columns:1fr 1fr!important;gap:6px!important;margin-top:8px!important}
+.duo-actions button{min-height:36px!important;height:36px!important;padding:6px 8px!important;font-size:11px!important;line-height:1!important;white-space:nowrap!important}
+.meal-edit-title{cursor:pointer;text-decoration:none}
+.meal-edit-title:active{opacity:.65}
+</style>
 </head>
 <body>
 
@@ -858,6 +865,7 @@ let state={
   pendingMealId:null,
   pendingDeleteId:null,
   pendingStockEditId:null,
+  editingMealId:null,
   purchaseHistory:[],
   lastUndo:null
 };
@@ -1000,7 +1008,9 @@ function mealDetailHtml(m){
     return s?`${s.name} ${fmt(i.qty)}${s.unit}`:'';
   }).filter(Boolean).join(' · ');
   const sourceLabel={cook:'직접 요리',delivery:'배달·포장',outside:'외식',other:'기타'}[m.source||'cook'];
-  return detail || `${sourceLabel} · 냉장고 재료 연결 없음`;
+  if(detail) return detail;
+  if((m.source||'cook')==='cook') return '직접 요리';
+  return sourceLabel;
 }
 function mealKcalHtml(m){
   if(!m.kcal)return '';
@@ -1026,7 +1036,7 @@ function renderDuoBoard(dateStr,interactive=false){
         <button class="danger delete-meal" data-id="${shared.id}">삭제</button>
       </div>`:'';
       out+=`<div class="duo-shared">
-        <div class="duo-shared-top"><div class="title">${shared.name}</div><span class="shared-chip">👫 함께</span></div>
+        <div class="duo-shared-top"><div class="title meal-edit-title" data-edit-meal="${shared.id}">${shared.name}</div><span class="shared-chip">👫 함께</span></div>
         <div class="detail">${mealDetailHtml(shared)}</div>${mealKcalHtml(shared)}${actions}
       </div>`;
     }else{
@@ -1037,7 +1047,7 @@ function renderDuoBoard(dateStr,interactive=false){
             <button class="danger delete-meal" data-id="${m.id}">삭제</button>
           </div>`:'';
           out+=`<div class="duo-cell">
-            <div class="title">${m.name}</div>
+            <div class="title meal-edit-title" data-edit-meal="${m.id}">${m.name}</div>
             <div class="detail">${mealDetailHtml(m)}</div>${mealKcalHtml(m)}${actions}
           </div>`;
         }else{
@@ -1302,6 +1312,14 @@ function renderWeekOverview(){
   }));
 }
 
+
+function bindMealEditTitles(){
+  $$('[data-edit-meal]').forEach(el=>el.addEventListener('click',()=>{
+    const meal=state.meals.find(m=>m.id===Number(el.dataset.editMeal));
+    if(meal) openMealForEdit(meal);
+  }));
+}
+
 function renderAll(){ensureStateShape();renderHome();renderMeals();renderFridge();renderShopping()}
 function bindMealButtons(){
   $$('.eat-btn').forEach(b=>b.addEventListener('click',()=>openEat(Number(b.dataset.id))));
@@ -1333,6 +1351,7 @@ function updateMealSourceUI(){
     :'배달·외식·기타 식사는 냉장고 재고와 연결되지 않고 재고 차감도 발생하지 않아요.';
 }
 function openMeal(prefill){
+  state.editingMealId=null;
   $('#mealType').value=prefill?.type||'점심';
   const owner=prefill?.owner||'yj';
   const ownerRadio=$(`input[name="mealOwner"][value="${owner}"]`);
@@ -1342,8 +1361,28 @@ function openMeal(prefill){
   $('#mealKcal').value=prefill?.kcal||'';
   renderIngredientPicker(prefill?.ingredients||[]);
   updateMealSourceUI();
+  const title=$('#mealSheet h2'); if(title) title.textContent='식단 추가';
+  $('#saveMeal').textContent='식단 저장';
   openSheet('mealSheet');
 }
+
+function openMealForEdit(meal){
+  state.editingMealId=meal.id;
+  state.selectedDate=meal.date||state.selectedDate||'2026-08-22';
+  $('#mealType').value=meal.type||'점심';
+  const owner=meal.owner||'yj';
+  const ownerRadio=$(`input[name="mealOwner"][value="${owner}"]`);
+  if(ownerRadio) ownerRadio.checked=true;
+  $('#mealSource').value=meal.source||'cook';
+  $('#mealName').value=meal.name||'';
+  $('#mealKcal').value=meal.kcal||'';
+  renderIngredientPicker(meal.ingredients||[]);
+  updateMealSourceUI();
+  const title=$('#mealSheet h2'); if(title) title.textContent='식단 수정';
+  $('#saveMeal').textContent='수정 저장';
+  openSheet('mealSheet');
+}
+
 function saveMeal(){
   const type=$('#mealType').value;
   const owner=$('input[name="mealOwner"]:checked')?.value||'yj';
@@ -1352,30 +1391,52 @@ function saveMeal(){
   if(!name){toast('메뉴 이름을 입력해주세요');return}
 
   const ingredients=source==='cook' ? $$('.ing-check:checked').map(c=>{
-    const id=c.dataset.id; const qty=parseFloat($(`.ing-qty[data-id="${id}"]`).value)||0;
-    return qty>0?{stockId:id,qty}:null
+    const id=c.dataset.id;
+    const qty=parseFloat($(`.ing-qty[data-id="${id}"]`).value)||0;
+    return qty>0?{stockId:id,qty}:null;
   }).filter(Boolean) : [];
   const kcal=parseInt($('#mealKcal').value)||0;
+  const editingId=state.editingMealId;
+  const currentMeal=editingId ? state.meals.find(m=>m.id===editingId) : null;
 
-  const sameSlot=state.meals.filter(m=>(m.date||'2026-08-22')===state.selectedDate && m.type===type);
+  const sameSlot=state.meals.filter(m=>
+    m.id!==editingId &&
+    (m.date||'2026-08-22')===state.selectedDate &&
+    m.type===type
+  );
 
   if(owner==='shared'){
     const conflicts=sameSlot.filter(m=>m.owner==='yj'||m.owner==='hj'||!m.owner);
-    if(conflicts.length && !confirm(`${type}에 YJ/HJ 개인 식단이 이미 있어요.\n'함께' 식단으로 바꾸면 기존 개인 식단을 삭제하고 함께 식단으로 등록해요.\n계속할까요?`)) return;
-    state.meals=state.meals.filter(m=>!((m.date||'2026-08-22')===state.selectedDate && m.type===type));
+    if(conflicts.length && !confirm(`${type}에 YJ/HJ 개인 식단이 이미 있어요.\n'함께' 식단으로 바꾸면 기존 개인 식단을 삭제해요.\n계속할까요?`)) return;
+    state.meals=state.meals.filter(m=>m.id===editingId || !((m.date||'2026-08-22')===state.selectedDate && m.type===type));
   }else{
     const shared=sameSlot.find(m=>m.owner==='shared');
     if(shared){
-      if(!confirm(`${type}에 '함께' 식단이 이미 있어요.\n개인 식단을 등록하면 함께 식단을 삭제하고 YJ/HJ 개별 식단으로 전환해요.\n계속할까요?`)) return;
+      if(!confirm(`${type}에 '함께' 식단이 이미 있어요.\n개인 식단으로 바꾸면 함께 식단을 삭제해요.\n계속할까요?`)) return;
       state.meals=state.meals.filter(m=>m.id!==shared.id);
     }
-    const old=state.meals.find(m=>(m.date||'2026-08-22')===state.selectedDate && m.type===type && (m.owner||'yj')===owner);
+    const old=sameSlot.find(m=>(m.owner||'yj')===owner);
     if(old&&old.status==='done'){toast(`${ownerLabel(owner)} ${type} 식사는 이미 완료 상태예요`);return}
     if(old) state.meals=state.meals.filter(m=>m.id!==old.id);
   }
 
-  state.meals.push({id:Date.now(),date:state.selectedDate,owner,type,name,source,status:'planned',kcal,ingredients});
-  closeSheets();renderAll();queueSave();toast('식단에 추가했어요');
+  if(currentMeal){
+    currentMeal.date=state.selectedDate;
+    currentMeal.owner=owner;
+    currentMeal.type=type;
+    currentMeal.name=name;
+    currentMeal.source=source;
+    currentMeal.kcal=kcal;
+    currentMeal.ingredients=ingredients;
+  }else{
+    state.meals.push({id:Date.now(),date:state.selectedDate,owner,type,name,source,status:'planned',kcal,ingredients});
+  }
+
+  state.editingMealId=null;
+  closeSheets();
+  renderAll();
+  queueSave();
+  toast(currentMeal?'식단을 수정했어요':'식단에 추가했어요');
 }
 function openEat(id){
   const m=state.meals.find(x=>x.id===id); if(!m)return;
@@ -1657,7 +1718,10 @@ $('#weekFullBtn').addEventListener('click',()=>{
 $$('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
 $$('.tab').forEach(t=>t.addEventListener('click',()=>{$$('.tab').forEach(x=>x.classList.toggle('active',x===t));$$('.pane').forEach(p=>p.classList.toggle('active',p.id===t.dataset.tab))}));
 $$('.chip').forEach(c=>c.addEventListener('click',()=>{state.fridgeFilter=c.dataset.filter;$$('.chip').forEach(x=>x.classList.toggle('active',x===c));renderFridge()}));
-$$('.close-sheet').forEach(b=>b.addEventListener('click',closeSheets));
+$$('.close-sheet').forEach(b=>b.addEventListener('click',()=>{
+  state.editingMealId=null;
+  closeSheets();
+}));
 $$('.sheetbg').forEach(s=>s.addEventListener('click',e=>{if(e.target===s)closeSheets()}));
 $$('.open-meal').forEach(b=>b.addEventListener('click',()=>openMeal()));
 $$('.open-shop-add').forEach(b=>b.addEventListener('click',()=>openSheet('shopAddSheet')));
