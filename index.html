@@ -163,7 +163,7 @@ h2{font-size:18px;margin:0}
   </div>
 </div>
 <div id="appRoot" style="display:none">
-  <div class="syncbar"><span class="syncstate" id="syncState">동기화 대기</span><button class="logoutbtn" id="disconnectBtn">이 기기 연결 해제</button></div>
+  <div class="syncbar"><span class="syncstate" id="syncState">동기화 대기</span><button class="logoutbtn" id="showShareCodeBtn">공유 코드 보기</button><button class="logoutbtn" id="disconnectBtn">이 기기 연결 해제</button></div>
 
 <main>
   <section id="home" class="page active">
@@ -324,6 +324,18 @@ h2{font-size:18px;margin:0}
   <div class="sub" style="margin:-5px 0 14px">재고와 소비기한이 가까운 재료를 우선해서 골랐어요.</div>
   <div id="recList"></div>
   <button class="secondary full close-sheet" style="margin-top:6px">닫기</button>
+</div></div>
+
+
+<div class="sheetbg" id="shareCodeSheet"><div class="sheet">
+  <h2>우리 집 공유 코드</h2>
+  <div class="sub" style="margin-bottom:12px">동거인 기기에서 이 코드를 한 번 입력하면 같은 Meal Board에 연결돼요.</div>
+  <div class="code-box">
+    <div class="sub">공유 코드</div>
+    <div class="share-code" id="currentShareCode">------</div>
+  </div>
+  <div class="auth-note">공유 코드는 외부에 공개하지 않는 게 좋아요.</div>
+  <button class="secondary full close-sheet" style="margin-top:12px">닫기</button>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -541,6 +553,21 @@ async function loadRemoteState(){
   remoteLoading=false;
   renderAll();
 }
+
+async function fetchCurrentShareCode(){
+  const {data,error}=await sb.rpc('meal_board_get_share_code');
+  if(error){
+    alert('공유코드를 불러오지 못했어요: '+error.message);
+    return null;
+  }
+  return data;
+}
+async function showCurrentShareCode(){
+  const code=await fetchCurrentShareCode();
+  if(!code)return;
+  $('#currentShareCode').textContent=code;
+  openSheet('shareCodeSheet');
+}
 async function enterConnectedBoard(){
   $('#connectScreen').style.display='none';
   $('#appRoot').style.display='block';
@@ -597,8 +624,14 @@ async function createHousehold(){
     alert('Meal Board 생성에 실패했어요: '+error.message);
     return;
   }
-  householdId=data.household_id;
-  shareCode=data.share_code;
+  const result=Array.isArray(data)?data[0]:data;
+  householdId=result?.household_id||null;
+  shareCode=result?.share_code||null;
+  if(!householdId || !shareCode){
+    alert('Meal Board는 생성됐지만 공유코드를 표시하지 못했어요. 보드 안의 공유 코드 보기에서 다시 확인할 수 있어요.');
+    await enterConnectedBoard();
+    return;
+  }
   $('#createdCode').textContent=shareCode;
   $('#connectStart').classList.add('hidden');
   $('#joinPanel').classList.add('hidden');
@@ -786,6 +819,7 @@ $('#backJoinBtn').addEventListener('click',()=>{
 $('#joinBoardBtn').addEventListener('click',joinHousehold);
 $('#joinCode').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6)});
 $('#enterBoardBtn').addEventListener('click',enterConnectedBoard);
+$('#showShareCodeBtn').addEventListener('click',showCurrentShareCode);
 $('#disconnectBtn').addEventListener('click',async()=>{
   if(!confirm('이 기기의 Meal Board 연결을 해제할까요? 데이터는 Supabase에 그대로 남아 있어요.'))return;
   await sb.auth.signOut();
