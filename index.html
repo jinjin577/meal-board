@@ -60,7 +60,7 @@ h2{font-size:18px;margin:0}
 .shop{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid #e8ebe5}.shop:last-child{border:0}
 .shop input{width:20px;height:20px;accent-color:var(--green)}.shop-main{flex:1}.shop small{display:block;color:var(--muted);margin-top:3px}.shop.done .shop-main{text-decoration:line-through;color:var(--muted)}
 .done-badge{font-size:11px;color:var(--green);font-weight:800}
-.bottom{position:fixed;left:50%;bottom:9px;transform:translateX(-50%);width:min(calc(100% - 18px),700px);display:grid;grid-template-columns:repeat(4,1fr);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:18px;padding:6px;box-shadow:0 10px 35px rgba(0,0,0,.12);z-index:15}
+.bottom{position:fixed;left:50%;bottom:9px;transform:translateX(-50%);width:min(calc(100% - 18px),700px);display:grid;grid-template-columns:repeat(5,1fr);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:18px;padding:6px;box-shadow:0 10px 35px rgba(0,0,0,.12);z-index:15}
 .bottom button{border:0;background:transparent;color:var(--muted);text-align:center;padding:8px 2px;border-radius:12px;font-size:11px;font-weight:800}.bottom button.active{background:var(--green-soft);color:var(--green)}.ico{display:block;font-size:19px;margin-bottom:2px}
 .sheetbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);align-items:flex-end;z-index:30}.sheetbg.show{display:flex}
 .sheet{width:min(100%,720px);margin:auto;background:#fff;border-radius:24px 24px 0 0;padding:20px 18px 26px;max-height:88vh;overflow:auto}
@@ -597,7 +597,25 @@ h2{font-size:18px;margin:0}
 .eval-line b{font-size:11px;text-align:right}
 .eval-feedback{margin-top:10px;padding-top:10px;border-top:1px solid #edf0ea;font-size:11px;line-height:1.45;color:#4f574c}
 .eval-protein-note{margin-top:7px;font-size:10px;color:#8a9187;line-height:1.4}
-@media(max-width:390px){.eval-wrap{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .eval-wrap{grid-template-columns:1fr}
+  .eval-card{padding:14px 15px}
+  .eval-line{font-size:12px}.eval-line b{font-size:12px}
+}
+.day.active{background:#dfe9dc!important;color:#557451!important}
+.together-filters{display:flex;gap:7px;overflow:auto;margin:2px 0 14px;padding-bottom:2px}
+.together-filters button{white-space:nowrap}
+.together-card{padding:14px 15px;margin-bottom:10px}
+.together-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.together-title{font-size:16px;font-weight:900;line-height:1.35}
+.together-meta{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5}
+.together-note{font-size:12px;margin-top:8px;line-height:1.5;color:#51594f}
+.together-actions{display:flex;gap:7px;margin-top:11px}
+.together-actions button{padding:8px 10px;font-size:11px}
+.task-done .together-title{text-decoration:line-through;color:#9aa095}
+.task-done{opacity:.72}
+.repeat-chip{background:#eef3eb;color:#657a61;border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;white-space:nowrap}
+
 </style>
 </head>
 <body>
@@ -635,7 +653,7 @@ h2{font-size:18px;margin:0}
   </div>
 </div>
 <div id="appRoot" style="display:none">
-  <div class="syncbar"><span class="syncstate" id="syncState">동기화 대기</span><button class="logoutbtn" id="showShareCodeBtn">공유 코드 보기</button><button class="logoutbtn" id="disconnectBtn">이 기기 연결 해제</button></div>
+  <div class="syncbar" id="syncBar"><span class="syncstate" id="syncState">동기화 대기</span><button class="logoutbtn" id="showShareCodeBtn">공유 코드 보기</button><button class="logoutbtn" id="disconnectBtn">이 기기 연결 해제</button></div>
 
 <main>
   <section id="home" class="page active">
@@ -708,6 +726,20 @@ h2{font-size:18px;margin:0}
       <div class="card" id="purchaseHistory"></div>
     </div>
   </section>
+
+  <section id="together" class="page">
+    <div class="head"><div><h1>함께</h1><div class="sub">같이 할 일, 기억할 것, 계획을 한곳에 모아요.</div></div><button class="primary mini" id="openTaskAdd">＋ 추가</button></div>
+    <div class="together-filters" id="togetherFilters">
+      <button class="chip active" data-task-filter="all">전체</button>
+      <button class="chip" data-task-filter="todo">할 일</button>
+      <button class="chip" data-task-filter="remember">기억</button>
+      <button class="chip" data-task-filter="plan">계획</button>
+    </div>
+    <div id="togetherList"></div>
+    <button class="secondary full" id="completedTaskToggle" style="margin-top:12px">완료한 항목 보기</button>
+    <div id="completedTaskList" class="hidden" style="margin-top:10px"></div>
+  </section>
+
 </main>
 
 <nav class="bottom">
@@ -715,6 +747,7 @@ h2{font-size:18px;margin:0}
   <button data-go="meal"><span class="ico">📅</span>식단</button>
   <button data-go="fridge"><span class="ico">🧊</span>냉장고</button>
   <button data-go="shop"><span class="ico">🛒</span>장보기</button>
+  <button data-go="together"><span class="ico">🤝</span>함께</button>
 </nav>
 
 <!-- Meal add -->
@@ -876,6 +909,21 @@ h2{font-size:18px;margin:0}
   <button class="danger full" id="deleteStockBtn" style="margin-top:10px">이 식재료 삭제</button>
 </div></div>
 
+
+<div class="sheetbg" id="taskSheet"><div class="sheet">
+  <h2 id="taskSheetTitle">함께 항목 추가</h2>
+  <div class="sheet-scroll">
+    <div class="field"><label>제목</label><input id="taskTitle" placeholder="예: 칫솔 교체하기"></div>
+    <div class="field"><label>종류</label><select id="taskType"><option value="todo">할 일</option><option value="remember">기억</option><option value="plan">계획</option></select></div>
+    <div class="field"><label>날짜 (선택)</label><input id="taskDate" type="date"></div>
+    <div class="field"><label>담당</label><select id="taskOwner"><option value="shared">함께</option><option value="yj">YJ</option><option value="hj">HJ</option></select></div>
+    <div class="field"><label>반복</label><select id="taskRepeat"><option value="none">반복 없음</option><option value="weekly">매주</option><option value="monthly">매월</option></select></div>
+    <div class="field"><label>메모 (선택)</label><textarea id="taskMemo" rows="3" placeholder="짧게 메모해두세요"></textarea></div>
+  </div>
+  <div class="sheet-sticky-actions"><button class="secondary close-sheet">취소</button><button class="primary" id="saveTask">저장</button></div>
+  <button class="danger full hidden" id="deleteTask" style="margin-top:8px">삭제</button>
+</div></div>
+
 <div class="undo-toast" id="undoToast"><span id="undoMessage"></span><button id="undoBtn">실행 취소</button></div>
 <div class="toast" id="toast"></div>
 
@@ -930,7 +978,10 @@ let state={
   editingShopKind:null,
   editingShopId:null,
   purchaseHistory:[],
-  lastUndo:null
+  lastUndo:null,
+  togetherTasks:[],
+  togetherFilter:'all',
+  editingTaskId:null
 };
 
 const $=s=>document.querySelector(s);
@@ -988,6 +1039,9 @@ function ensureStateShape(){
   if(!Array.isArray(state.shopping.food)) state.shopping.food=[];
   if(!Array.isArray(state.shopping.daily)) state.shopping.daily=[];
   if(!Array.isArray(state.purchaseHistory)) state.purchaseHistory=[];
+  if(!Array.isArray(state.togetherTasks)) state.togetherTasks=[];
+  if(!state.togetherFilter) state.togetherFilter='all';
+  if(!('editingTaskId' in state)) state.editingTaskId=null;
   if(!('lastUndo' in state)) state.lastUndo=null;
   if(!('pendingPurchaseId' in state)) state.pendingPurchaseId=null;
   if(!('pendingMealId' in state)) state.pendingMealId=null;
@@ -1008,7 +1062,7 @@ function ensureMealDates(){
 function koDateTitle(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   const days=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
-  return `${days[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`;
+  return `${d.getMonth()+1}월 ${d.getDate()}일 ${days[d.getDay()]}`;
 }
 function mealsForDate(dateStr){
   ensureMealDates();
@@ -1046,6 +1100,9 @@ function showUndo(message,undoPayload){
 }
 function addHistory(entry){
   if(!Array.isArray(state.purchaseHistory)) state.purchaseHistory=[];
+  if(!Array.isArray(state.togetherTasks)) state.togetherTasks=[];
+  if(!state.togetherFilter) state.togetherFilter='all';
+  if(!('editingTaskId' in state)) state.editingTaskId=null;
   const t=nowStamp();
   state.purchaseHistory.unshift({
     id:Date.now()+Math.random(),
@@ -1066,6 +1123,7 @@ function go(id){
   state.currentPage=id;
   $$('.page').forEach(p=>p.classList.toggle('active',p.id===id));
   $$('.bottom [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===id));
+  if($('#syncBar')) $('#syncBar').style.display=id==='home'?'flex':'none';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -1528,7 +1586,49 @@ function bindMealEditTitles(){
   }));
 }
 
-function renderAll(){ensureStateShape();renderHome();renderMeals();renderFridge();renderShopping();bindMealEditTitles();bindQuickMealAdd()}
+function taskTypeLabel(t){return t==='remember'?'기억':t==='plan'?'계획':'할 일'}
+function taskOwnerLabel(o){return o==='yj'?'YJ':o==='hj'?'HJ':'함께'}
+function taskRepeatLabel(r){return r==='weekly'?'매주':r==='monthly'?'매월':''}
+function taskDateLabel(d){if(!d)return '날짜 없음';const x=parseYmd(d);const ds=['일','월','화','수','목','금','토'];return `${x.getMonth()+1}월 ${x.getDate()}일 ${ds[x.getDay()]}요일`}
+function advanceRecurringDate(date,repeat){
+  let d=date?parseYmd(date):new Date();
+  if(repeat==='weekly') d.setDate(d.getDate()+7);
+  if(repeat==='monthly'){const day=d.getDate();d.setMonth(d.getMonth()+1,1);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));}
+  return ymd(d);
+}
+function renderTogether(){
+  ensureStateShape();
+  const filter=state.togetherFilter||'all';
+  const active=state.togetherTasks.filter(t=>!t.done&&(filter==='all'||t.type===filter)).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  const card=t=>`<div class="card together-card ${t.done?'task-done':''}" data-task-id="${t.id}">
+    <div class="together-top"><div><div class="together-title">${t.title}</div><div class="together-meta">${taskTypeLabel(t.type)} · ${taskOwnerLabel(t.owner)} · ${taskDateLabel(t.date)}</div></div>${t.repeat&&t.repeat!=='none'?`<span class="repeat-chip">↻ ${taskRepeatLabel(t.repeat)}</span>`:''}</div>
+    ${t.memo?`<div class="together-note">${t.memo}</div>`:''}
+    <div class="together-actions">${!t.done?`<button class="secondary task-complete" data-id="${t.id}">✓ 완료</button>`:`<button class="secondary task-restore" data-id="${t.id}">↩ 복구</button>`}<button class="secondary task-edit" data-id="${t.id}">수정</button></div>
+  </div>`;
+  $('#togetherList').innerHTML=active.length?active.map(card).join(''):'<div class="card sub">해당 항목이 없어요.</div>';
+  const done=state.togetherTasks.filter(t=>t.done);
+  $('#completedTaskList').innerHTML=done.length?done.map(card).join(''):'<div class="card sub">완료한 항목이 없어요.</div>';
+  $$('.task-complete').forEach(b=>b.addEventListener('click',()=>completeTask(Number(b.dataset.id))));
+  $$('.task-restore').forEach(b=>b.addEventListener('click',()=>restoreTask(Number(b.dataset.id))));
+  $$('.task-edit').forEach(b=>b.addEventListener('click',()=>openTaskEdit(Number(b.dataset.id))));
+}
+function openTask(task=null){
+  state.editingTaskId=task?.id||null;
+  $('#taskSheetTitle').textContent=task?'함께 항목 수정':'함께 항목 추가';
+  $('#taskTitle').value=task?.title||'';$('#taskType').value=task?.type||'todo';$('#taskDate').value=task?.date||'';$('#taskOwner').value=task?.owner||'shared';$('#taskRepeat').value=task?.repeat||'none';$('#taskMemo').value=task?.memo||'';
+  $('#deleteTask').classList.toggle('hidden',!task);openSheet('taskSheet');
+}
+function openTaskEdit(id){const t=state.togetherTasks.find(x=>x.id===id);if(t)openTask(t)}
+function saveTaskItem(){
+  const title=$('#taskTitle').value.trim();if(!title){toast('제목을 입력해주세요');return}
+  const obj={title,type:$('#taskType').value,date:$('#taskDate').value,owner:$('#taskOwner').value,repeat:$('#taskRepeat').value,memo:$('#taskMemo').value.trim()};
+  if(state.editingTaskId){const t=state.togetherTasks.find(x=>x.id===state.editingTaskId);if(t)Object.assign(t,obj)}else state.togetherTasks.push({id:Date.now(),done:false,...obj});
+  state.editingTaskId=null;closeSheets();renderTogether();queueSave();toast('함께 보드에 저장했어요');
+}
+function completeTask(id){const t=state.togetherTasks.find(x=>x.id===id);if(!t)return;if(t.repeat&&t.repeat!=='none'){t.date=advanceRecurringDate(t.date,t.repeat);t.lastCompletedAt=new Date().toISOString();toast(`완료! 다음 일정은 ${taskDateLabel(t.date)}`)}else{t.done=true;t.completedAt=new Date().toISOString();toast('완료했어요')}renderTogether();queueSave()}
+function restoreTask(id){const t=state.togetherTasks.find(x=>x.id===id);if(!t)return;t.done=false;delete t.completedAt;renderTogether();queueSave();toast('다시 할 항목으로 복구했어요')}
+function deleteTaskItem(){if(!state.editingTaskId)return;if(!confirm('이 항목을 삭제할까요?'))return;state.togetherTasks=state.togetherTasks.filter(x=>x.id!==state.editingTaskId);state.editingTaskId=null;closeSheets();renderTogether();queueSave();toast('삭제했어요')}
+function renderAll(){ensureStateShape();renderHome();renderMeals();renderFridge();renderShopping();renderTogether();bindMealEditTitles();bindQuickMealAdd();if($('#syncBar'))$('#syncBar').style.display=state.currentPage==='home'?'flex':'none'}
 function bindMealButtons(){
   $$('.eat-btn').forEach(b=>b.addEventListener('click',()=>openEat(Number(b.dataset.id))));
   $$('.delete-meal').forEach(b=>b.addEventListener('click',()=>deleteMeal(Number(b.dataset.id))));
@@ -1989,6 +2089,12 @@ $('#saveStockEdit').addEventListener('click',saveStockEdit);
 $('#deleteStockBtn').addEventListener('click',deleteCurrentStock);
 
 
+
+$('#openTaskAdd').addEventListener('click',()=>openTask());
+$('#saveTask').addEventListener('click',saveTaskItem);
+$('#deleteTask').addEventListener('click',deleteTaskItem);
+$('#completedTaskToggle').addEventListener('click',()=>{const el=$('#completedTaskList');el.classList.toggle('hidden');$('#completedTaskToggle').textContent=el.classList.contains('hidden')?'완료한 항목 보기':'완료한 항목 닫기';});
+$$('[data-task-filter]').forEach(b=>b.addEventListener('click',()=>{state.togetherFilter=b.dataset.taskFilter;$$('[data-task-filter]').forEach(x=>x.classList.toggle('active',x===b));renderTogether();}));
 
 $('#createBoardBtn').addEventListener('click',createHousehold);
 $('#showJoinBtn').addEventListener('click',()=>{
