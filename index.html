@@ -617,6 +617,30 @@ h2{font-size:18px;margin:0}
 .repeat-chip{background:#eef3eb;color:#657a61;border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;white-space:nowrap}
 
 </style>
+
+<style>
+/* v4.2 evaluation layout fix */
+.eval-wrap{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:8px!important;
+}
+.eval-card{
+  min-width:0!important;
+  padding:11px!important;
+}
+.eval-person{font-size:17px!important}
+.eval-grade{font-size:10px!important;padding:5px 7px!important}
+.eval-line{font-size:10.5px!important;gap:5px!important}
+.eval-line b{font-size:10.5px!important}
+.eval-feedback{font-size:10.5px!important}
+.eval-protein-note{font-size:9.5px!important}
+@media(max-width:390px){
+  .eval-wrap{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  }
+}
+</style>
 </head>
 <body>
 
@@ -1313,6 +1337,20 @@ function feedbackFor(f){
 }
 function renderPersonEval(dayMeals,owner){
   const label=owner==='yj'?'YJ':'HJ';
+  const personMeals=personMealsForEval(dayMeals,owner);
+
+  if(personMeals.length===0){
+    return `<div class="eval-card">
+      <div class="eval-top">
+        <span class="eval-person">${label}</span>
+        <span class="eval-grade mid">식단 없음</span>
+      </div>
+      <div class="eval-feedback" style="margin-top:0;padding-top:0;border-top:0">
+        아직 등록된 식단이 없어요.
+      </div>
+    </div>`;
+  }
+
   const f=evalFlags(dayMeals,owner);
   const grade=gradeFor(scoreEval(f));
   const proteinG=estimatePersonProtein(dayMeals,owner);
