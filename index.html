@@ -641,6 +641,39 @@ h2{font-size:18px;margin:0}
   }
 }
 </style>
+
+<style>
+/* v4.3 evaluation hard 50/50 */
+#compositionGrid{width:100%!important}
+.eval-wrap{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:50% 50%!important;
+  gap:0!important;
+}
+.eval-card{
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+  border-radius:0!important;
+}
+.eval-card:first-child{
+  border-top-left-radius:16px!important;
+  border-bottom-left-radius:16px!important;
+}
+.eval-card:last-child{
+  border-top-right-radius:16px!important;
+  border-bottom-right-radius:16px!important;
+  border-left:0!important;
+}
+.eval-top{gap:6px!important}
+.eval-person{font-size:16px!important}
+.eval-grade{font-size:10px!important;padding:5px 7px!important}
+.eval-line{font-size:10px!important;gap:4px!important}
+.eval-line b{font-size:10px!important}
+.eval-feedback{font-size:10px!important}
+.eval-protein-note{font-size:9px!important}
+</style>
 </head>
 <body>
 
@@ -691,7 +724,7 @@ h2{font-size:18px;margin:0}
     </div>
 
     <div class="section">
-      <div class="section-head"><h2>✨ 메뉴 추천</h2><span class="badge">냉장고 기반</span></div>
+      <div class="section-head" style="margin-top:18px"><h2>✨ 메뉴 추천</h2><span class="badge">냉장고 기반</span></div>
       <div class="card">
         <div class="sub" style="margin-bottom:12px">현재 재고와 소비기한이 가까운 재료를 기준으로 메뉴를 골라줘요.</div>
         <button class="primary full open-rec">메뉴 추천 받기</button>
@@ -715,7 +748,7 @@ h2{font-size:18px;margin:0}
     <div id="mealPlans"></div>
 
     <div class="composition">
-      <div class="section-head"><div><h2>오늘 식단 평가 🌿</h2><div class="sub" style="margin-top:4px">YJ · HJ 각각 하루 식단 기준으로 간단히 봐요.</div></div><span class="badge">참고용</span></div>
+      <div class="section-head"><div><h2>오늘 식단 평가 🍽️</h2><div class="sub" style="margin-top:4px">YJ · HJ 각각 하루 식단 기준으로 간단히 봐요.</div></div><span class="badge">참고용</span></div>
       <div class="comp-grid" id="compositionGrid"></div>
       <div class="sub" style="margin-top:10px">※ 메뉴·재료 구성 기반의 간단 평가예요. 단백질 g은 추정 가능한 식재료만 계산해요.</div>
     </div>
