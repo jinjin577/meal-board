@@ -562,8 +562,24 @@ h2{font-size:18px;margin:0}
 .today-week-btn{padding:7px 10px!important;font-size:11px!important;border-radius:10px!important;white-space:nowrap}
 .add-meal-mini{padding:8px 11px!important;font-size:11px!important;border-radius:10px!important;white-space:nowrap}
 .duo-time.addable{cursor:pointer}
-.duo-time.addable::after{content:"+";margin-left:3px;font-size:11px;color:var(--green);font-weight:900}
+
 .shop-main.editable{cursor:pointer}.shop-main.editable:active{opacity:.62}
+</style>
+
+<style>
+.meal-cheer{white-space:nowrap;font-size:12px!important}
+@media(max-width:370px){.meal-cheer{font-size:11px!important}}
+.person-eval{
+  border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;
+}
+.person-eval + .person-eval{margin-top:8px}
+.person-eval-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.person-eval-head b{font-size:14px}
+.eval-protein{font-size:12px;font-weight:800;color:var(--green)}
+.eval-note{font-size:11px;color:var(--muted);line-height:1.45;margin-top:5px}
+.eval-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.eval-tag{font-size:10px;padding:5px 7px;border-radius:999px;background:#f1f4f0;color:#667064;font-weight:800}
+.eval-tag.warn{background:#fbefe7;color:#ad6138}
 </style>
 </head>
 <body>
@@ -632,16 +648,16 @@ h2{font-size:18px;margin:0}
   </section>
 
   <section id="meal" class="page">
-    <div class="head"><div><h1>주간 식단</h1><div class="sub">식단 등록은 재고를 차감하지 않고 ‘사용 예정’으로 잡아요.</div></div><button class="secondary mini week-full-btn" id="weekFullBtn"><span>주간</span><span>전체</span></button></div>
+    <div class="head"><div><h1>주간 식단</h1><div class="sub meal-cheer">오늘도 계획대로, 맛있게 챙겨 먹자! 💪</div></div><button class="secondary mini week-full-btn" id="weekFullBtn"><span>주간</span><span>전체</span></button></div>
     <div class="weekbar"><button class="secondary mini" id="prevWeekBtn">‹</button><div class="week-center"><b id="weekRangeLabel">8월 17일 - 23일</b><button class="secondary today-week-btn" id="todayWeekBtn">오늘</button></div><button class="secondary mini" id="nextWeekBtn">›</button></div>
     <div class="week" id="weekDays"></div>
     <div class="section-head"><h2 id="selectedDateTitle">토요일 8/22</h2><button class="primary add-meal-mini open-meal" id="mealAddTopBtn">＋ 식단 추가</button></div>
     <div id="mealPlans"></div>
 
     <div class="composition">
-      <div class="section-head"><div><h2>오늘 식단 구성 참고</h2><div class="sub" style="margin-top:4px">1인분 판단 없이 메뉴 구성만 봐요.</div></div><span class="badge">참고용</span></div>
+      <div class="section-head"><div><h2>오늘 식단 평가</h2><div class="sub" style="margin-top:4px">YJ · HJ 각각 1인 기준으로 봐요.</div></div><span class="badge">참고용</span></div>
       <div class="comp-grid" id="compositionGrid"></div>
-      <div class="sub" style="margin-top:10px">※ 칼로리는 입력한 재료 전체 조리량의 예상치예요. 실제 1인 섭취량과는 다를 수 있어요.</div>
+      <div class="sub" style="margin-top:10px">※ 단백질은 등록한 식재료 중 추정 가능한 재료를 기준으로 계산하며, 함께 식단은 2인분으로 나눠 반영해요.</div>
     </div>
 
     
@@ -906,7 +922,7 @@ const $$=s=>[...document.querySelectorAll(s)];
 function todayStr(){return ymd(new Date())}
 function homeDateLabel(){
   const d=new Date(),days=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
-  return `${d.getMonth()+1}월 ${d.getDate()}일 ${days[d.getDay()]} · 우리 집 Meal Board`;
+  return `${d.getMonth()+1}월 ${d.getDate()}일 ${days[d.getDay()]}`;
 }
 function ymd(d){
   const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
@@ -1108,6 +1124,95 @@ function renderHome(){
   $('#homeDailyNames').textContent=daily.length?daily.slice(0,3).map(x=>x.name).join(' · ')+(daily.length>3?' 외':''):'살 것이 없어요';
 }
 
+
+function estimatedProteinForIngredient(stock,qty){
+  if(!stock || !qty)return 0;
+  const name=(stock.name||'').toLowerCase();
+  const unit=stock.unit||'';
+  const q=Number(qty)||0;
+
+  // common foods: rough practical estimates
+  if(/계란|달걀/.test(name)){
+    if(unit==='개') return q*6;
+    if(unit==='판') return q*180;
+  }
+  if(/닭가슴살|닭다리살|닭고기|치킨/.test(name)){
+    if(unit==='g') return q*0.20;
+    if(unit==='팩') return q*25;
+  }
+  if(/우삼겹|소고기|쇠고기|불고기/.test(name)){
+    if(unit==='g') return q*0.18;
+    if(unit==='팩') return q*22;
+  }
+  if(/돼지고기|삼겹살|목살/.test(name)){
+    if(unit==='g') return q*0.18;
+    if(unit==='팩') return q*22;
+  }
+  if(/두부/.test(name)){
+    if(unit==='g') return q*0.08;
+    if(unit==='모') return q*20;
+  }
+  if(/참치/.test(name)){
+    if(unit==='g') return q*0.23;
+    if(unit==='캔'||unit==='개') return q*20;
+  }
+  if(/우유/.test(name)){
+    if(unit==='ml') return q*0.032;
+    if(unit==='개') return q*6;
+  }
+  if(/그릭요거트|요거트|요구르트/.test(name)){
+    if(unit==='g') return q*0.08;
+    if(unit==='개') return q*10;
+  }
+  return 0;
+}
+function personMealsForEval(dayMeals,owner){
+  return dayMeals.filter(m=>m.owner===owner || m.owner==='shared');
+}
+function estimatePersonProtein(dayMeals,owner){
+  let total=0;
+  personMealsForEval(dayMeals,owner).forEach(m=>{
+    const split=m.owner==='shared'?0.5:1;
+    (m.ingredients||[]).forEach(i=>{
+      total += estimatedProteinForIngredient(stockById(i.stockId),i.qty)*split;
+    });
+  });
+  return Math.round(total);
+}
+function personVegCount(dayMeals,owner){
+  const vegPattern=/배추|양배추|상추|깻잎|시금치|브로콜리|버섯|팽이|양파|대파|파프리카|오이|토마토|당근|김치|무|콩나물|숙주|애호박|채소|야채/;
+  const names=new Set();
+  personMealsForEval(dayMeals,owner).forEach(m=>(m.ingredients||[]).forEach(i=>{
+    const s=stockById(i.stockId);
+    if(s && vegPattern.test(s.name||'')) names.add(s.name);
+  }));
+  return names.size;
+}
+function personSalty(dayMeals,owner){
+  return personMealsForEval(dayMeals,owner).some(m=>/김치|찌개|국|탕|라면|마라|짬뽕|샤브|볶음|덮밥/.test(m.name||''));
+}
+function renderPersonEval(dayMeals,owner){
+  const label=owner==='yj'?'YJ':'HJ';
+  const protein=estimatePersonProtein(dayMeals,owner);
+  const target=60;
+  const shortage=Math.max(0,target-protein);
+  const veg=personVegCount(dayMeals,owner);
+  const salty=personSalty(dayMeals,owner);
+  const registered=personMealsForEval(dayMeals,owner).length;
+  const proteinText=shortage>0
+    ? `약 ${protein}g · 참고 목표까지 약 ${shortage}g 부족`
+    : `약 ${protein}g · 참고 목표 충족`;
+  return `<div class="person-eval">
+    <div class="person-eval-head"><b>${label}</b><span class="eval-protein">단백질 ${proteinText}</span></div>
+    <div class="eval-tags">
+      <span class="eval-tag">${registered}끼 등록</span>
+      <span class="eval-tag ${veg<2?'warn':''}">채소 ${veg}종</span>
+      ${salty?'<span class="eval-tag warn">짠 메뉴 가능성</span>':'<span class="eval-tag">짠 메뉴 적음</span>'}
+    </div>
+    <div class="eval-note">단백질 참고 목표는 1인 하루 60g으로 계산한 간단한 보드용 추정치예요.</div>
+  </div>`;
+}
+
 function renderMeals(){
   ensureMealDates();
   renderWeekNav();
@@ -1117,16 +1222,10 @@ function renderMeals(){
   $('#mealPlans').innerHTML=renderDuoBoard(state.selectedDate,true);
 
   const planned=dayMeals.filter(m=>m.status==='planned').length;
-
-  const hasProtein=dayMeals.some(m=>(m.ingredients||[]).some(i=>['egg','beef','chicken'].includes(i.stockId)));
-  const vegCount=new Set(dayMeals.flatMap(m=>(m.ingredients||[]).map(i=>i.stockId)).filter(id=>['cabbage','enoki','greenonion','kimchi'].includes(id))).size;
-  const salty=dayMeals.some(m=>/김치|샤브|찌개|국|마라/.test(m.name));
-  $('#compositionGrid').innerHTML=`
-    <div class="comp-item"><b>🥩 단백질 식품</b><span>${hasProtein?'포함되어 있어요':'추가하면 더 균형이 좋아요'}</span></div>
-    <div class="comp-item"><b>🥬 채소류</b><span>${vegCount}종 포함</span></div>
-    <div class="comp-item"><b>🧂 짠 메뉴 가능성</b><span>${salty?'김치·국물·양념류 메뉴가 있어요':'특별한 주의 메뉴 없음'}</span></div>
-    <div class="comp-item"><b>🍽️ 등록 상태</b><span>${dayMeals.length}개 등록 · ${planned}개 예정</span></div>`;
+  $('#compositionGrid').innerHTML=renderPersonEval(dayMeals,'yj')+renderPersonEval(dayMeals,'hj');
   bindMealButtons();
+  bindMealEditTitles();
+  bindQuickMealAdd();
 }
 function renderFridge(){
   const activeStocks=state.stocks.filter(s=>!s.archived);
@@ -1364,7 +1463,7 @@ function bindMealEditTitles(){
   }));
 }
 
-function renderAll(){ensureStateShape();renderHome();renderMeals();renderFridge();renderShopping()}
+function renderAll(){ensureStateShape();renderHome();renderMeals();renderFridge();renderShopping();bindMealEditTitles();bindQuickMealAdd()}
 function bindMealButtons(){
   $$('.eat-btn').forEach(b=>b.addEventListener('click',()=>openEat(Number(b.dataset.id))));
   $$('.delete-meal').forEach(b=>b.addEventListener('click',()=>deleteMeal(Number(b.dataset.id))));
