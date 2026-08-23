@@ -674,6 +674,32 @@ h2{font-size:18px;margin:0}
 .eval-feedback{font-size:10px!important}
 .eval-protein-note{font-size:9px!important}
 </style>
+
+<style>
+/* v4.4 fix: evaluation wrapper must occupy full parent width */
+#compositionGrid{
+  display:block!important;
+  width:100%!important;
+  max-width:none!important;
+}
+#compositionGrid .eval-wrap{
+  display:grid!important;
+  width:100%!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:8px!important;
+  box-sizing:border-box!important;
+}
+#compositionGrid .eval-card{
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+@media(max-width:390px){
+  #compositionGrid .eval-wrap{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  }
+}
+</style>
 </head>
 <body>
 
