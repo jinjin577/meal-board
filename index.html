@@ -555,6 +555,16 @@ h2{font-size:18px;margin:0}
 .meal-edit-title{cursor:pointer;text-decoration:none}
 .meal-edit-title:active{opacity:.65}
 </style>
+
+<style>
+.refresh-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.week-center{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0}
+.today-week-btn{padding:7px 10px!important;font-size:11px!important;border-radius:10px!important;white-space:nowrap}
+.add-meal-mini{padding:8px 11px!important;font-size:11px!important;border-radius:10px!important;white-space:nowrap}
+.duo-time.addable{cursor:pointer}
+.duo-time.addable::after{content:"+";margin-left:3px;font-size:11px;color:var(--green);font-weight:900}
+.shop-main.editable{cursor:pointer}.shop-main.editable:active{opacity:.62}
+</style>
 </head>
 <body>
 
@@ -595,7 +605,7 @@ h2{font-size:18px;margin:0}
 
 <main>
   <section id="home" class="page active">
-    <div class="head"><div><h1>오늘 뭐 먹지? 🍽️</h1><div class="sub">8월 22일 토요일 · 우리 집 Meal Board</div></div><span class="badge">오늘</span></div>
+    <div class="head"><div><h1>오늘 뭐 먹지? 🍽️</h1><div class="sub" id="homeDateSubtitle"></div></div><button class="refresh-btn" id="refreshBtn" aria-label="새로고침">↻</button></div>
 
     <div id="homeMeals"></div>
 
@@ -623,9 +633,9 @@ h2{font-size:18px;margin:0}
 
   <section id="meal" class="page">
     <div class="head"><div><h1>주간 식단</h1><div class="sub">식단 등록은 재고를 차감하지 않고 ‘사용 예정’으로 잡아요.</div></div><button class="secondary mini week-full-btn" id="weekFullBtn"><span>주간</span><span>전체</span></button></div>
-    <div class="weekbar"><button class="secondary mini" id="prevWeekBtn">‹</button><b id="weekRangeLabel">8월 17일 - 23일</b><button class="secondary mini" id="nextWeekBtn">›</button></div>
+    <div class="weekbar"><button class="secondary mini" id="prevWeekBtn">‹</button><div class="week-center"><b id="weekRangeLabel">8월 17일 - 23일</b><button class="secondary today-week-btn" id="todayWeekBtn">오늘</button></div><button class="secondary mini" id="nextWeekBtn">›</button></div>
     <div class="week" id="weekDays"></div>
-    <div class="section-head"><h2 id="selectedDateTitle">토요일 8/22</h2><span class="badge" id="mealCountBadge">0끼 예정</span></div>
+    <div class="section-head"><h2 id="selectedDateTitle">토요일 8/22</h2><button class="primary add-meal-mini open-meal" id="mealAddTopBtn">＋ 식단 추가</button></div>
     <div id="mealPlans"></div>
 
     <div class="composition">
@@ -634,7 +644,7 @@ h2{font-size:18px;margin:0}
       <div class="sub" style="margin-top:10px">※ 칼로리는 입력한 재료 전체 조리량의 예상치예요. 실제 1인 섭취량과는 다를 수 있어요.</div>
     </div>
 
-    <button class="primary full open-meal">＋ 식단 추가</button>
+    
   </section>
 
   <section id="fridge" class="page">
@@ -687,6 +697,7 @@ h2{font-size:18px;margin:0}
   <h2>식단 추가</h2>
   <div class="sheet-scroll">
     
+  <div class="field"><label>날짜</label><input id="mealDate" type="date"></div>
   <div class="field"><label>누가 먹나요?</label>
     <div class="owner-select">
       <input type="radio" name="mealOwner" id="ownerYJ" value="yj" checked><label for="ownerYJ">YJ</label>
@@ -741,6 +752,22 @@ h2{font-size:18px;margin:0}
 </div></div>
 
 <!-- Food purchase confirm -->
+
+<div class="sheetbg" id="shopEditSheet"><div class="sheet">
+  <h2>장보기 항목 수정</h2>
+  <div class="sheet-scroll">
+    <div class="field"><label>구분</label><select id="editShopType"><option value="food">🥕 식료품</option><option value="daily">🧻 생필품</option></select></div>
+    <div class="field"><label>품목</label><input id="editShopName"></div>
+    <div class="grid2">
+      <div class="field"><label>수량</label><input id="editShopQty" type="number" step="0.25" min="0"></div>
+      <div class="field"><label>단위</label><select id="editShopUnit"><option>개</option><option>팩</option><option>봉</option><option>판</option><option>통</option><option>모</option><option>묶음</option><option>g</option><option>ml</option></select></div>
+    </div>
+    <div class="field"><label>메모 (선택)</label><input id="editShopMemo"></div>
+    <button class="danger full" id="deleteShopItem" style="margin-top:8px">이 항목 삭제</button>
+  </div>
+  <div class="sheet-sticky-actions"><button class="secondary close-sheet">취소</button><button class="primary" id="saveShopEdit">수정 저장</button></div>
+</div></div>
+
 <div class="sheetbg" id="purchaseSheet"><div class="sheet">
   <h2 id="purchaseTitle">식료품 구매 완료</h2>
   <div class="sub" id="purchaseInfo" style="margin-bottom:14px"></div>
@@ -866,6 +893,8 @@ let state={
   pendingDeleteId:null,
   pendingStockEditId:null,
   editingMealId:null,
+  editingShopKind:null,
+  editingShopId:null,
   purchaseHistory:[],
   lastUndo:null
 };
@@ -874,6 +903,11 @@ const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 
 
+function todayStr(){return ymd(new Date())}
+function homeDateLabel(){
+  const d=new Date(),days=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+  return `${d.getMonth()+1}월 ${d.getDate()}일 ${days[d.getDay()]} · 우리 집 Meal Board`;
+}
 function ymd(d){
   const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
@@ -1029,7 +1063,7 @@ function renderDuoBoard(dateStr,interactive=false){
     const shared=meals.find(m=>m.type===type&&m.owner==='shared');
     const yj=meals.find(m=>m.type===type&&m.owner==='yj');
     const hj=meals.find(m=>m.type===type&&m.owner==='hj');
-    out+=`<div class="duo-time">${type}</div>`;
+    out+=`<div class="duo-time addable" data-add-meal-date="${dateStr}" data-add-meal-type="${type}">${type}</div>`;
     if(shared){
       const actions=interactive?`<div class="duo-actions">
         ${shared.status==='planned'?`<button class="secondary eat-btn" data-id="${shared.id}">✓ 먹었어요</button>`:'<button class="secondary" disabled>✓ 완료</button>'}
@@ -1061,7 +1095,9 @@ function renderDuoBoard(dateStr,interactive=false){
 }
 
 function renderHome(){
-  $('#homeMeals').innerHTML=renderDuoBoard('2026-08-22',false);
+  const today=todayStr();
+  $('#homeDateSubtitle').textContent=homeDateLabel();
+  $('#homeMeals').innerHTML=renderDuoBoard(today,false);
 
   const exp=state.stocks.filter(s=>!s.archived).map(s=>({...s,d:daysUntil(s.expiry)})).filter(s=>s.d!==null&&s.d<=3).sort((a,b)=>a.d-b.d);
   $('#expiryList').innerHTML=exp.length?exp.map(s=>`<div class="expiry"><span>${s.name}</span><span class="badge ${s.d<=2?'warn':''}">${s.d===0?'오늘':`D-${s.d}`}</span></div>`).join(''):'<div class="sub">임박한 식재료가 없어요.</div>';
@@ -1071,6 +1107,7 @@ function renderHome(){
   $('#homeFoodNames').textContent=food.length?food.slice(0,3).map(x=>x.name).join(' · ')+(food.length>3?' 외':''):'살 것이 없어요';
   $('#homeDailyNames').textContent=daily.length?daily.slice(0,3).map(x=>x.name).join(' · ')+(daily.length>3?' 외':''):'살 것이 없어요';
 }
+
 function renderMeals(){
   ensureMealDates();
   renderWeekNav();
@@ -1080,7 +1117,6 @@ function renderMeals(){
   $('#mealPlans').innerHTML=renderDuoBoard(state.selectedDate,true);
 
   const planned=dayMeals.filter(m=>m.status==='planned').length;
-  $('#mealCountBadge').textContent=planned+'개 예정';
 
   const hasProtein=dayMeals.some(m=>(m.ingredients||[]).some(i=>['egg','beef','chicken'].includes(i.stockId)));
   const vegCount=new Set(dayMeals.flatMap(m=>(m.ingredients||[]).map(i=>i.stockId)).filter(id=>['cabbage','enoki','greenonion','kimchi'].includes(id))).size;
@@ -1119,15 +1155,18 @@ function renderShopping(){
 
   $('#food').innerHTML=food.map(x=>`<div class="shop">
     <input type="checkbox" class="shop-check" data-kind="food" data-id="${x.id}">
-    <div class="shop-main"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'식료품'}</small></div>
+    <div class="shop-main editable" data-edit-shop-kind="food" data-edit-shop-id="${x.id}"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'식료품'}</small></div>
   </div>`).join('')||'<div class="sub">살 식료품이 없어요.</div>';
 
   $('#daily').innerHTML=daily.map(x=>`<div class="shop">
     <input type="checkbox" class="shop-check" data-kind="daily" data-id="${x.id}">
-    <div class="shop-main"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'생필품'}</small></div>
+    <div class="shop-main editable" data-edit-shop-kind="daily" data-edit-shop-id="${x.id}"><b>${x.name} ${fmt(x.qty)}${x.unit}</b><small>${x.memo||'생필품'}</small></div>
   </div>`).join('')||'<div class="sub">살 생필품이 없어요.</div>';
 
   $$('.shop-check').forEach(c=>c.addEventListener('change',onShopCheck));
+  $$('[data-edit-shop-kind][data-edit-shop-id]').forEach(el=>el.addEventListener('click',()=>{
+    openShopEdit(el.dataset.editShopKind,Number(el.dataset.editShopId));
+  }));
 
   const hist=(state.purchaseHistory||[]).slice(0,30);
   if(!hist.length){
@@ -1313,6 +1352,11 @@ function renderWeekOverview(){
 }
 
 
+function bindQuickMealAdd(){
+  $$('[data-add-meal-date][data-add-meal-type]').forEach(el=>el.addEventListener('click',()=>{
+    openMeal({date:el.dataset.addMealDate,type:el.dataset.addMealType,owner:'yj',source:'cook',name:'',ingredients:[]});
+  }));
+}
 function bindMealEditTitles(){
   $$('[data-edit-meal]').forEach(el=>el.addEventListener('click',()=>{
     const meal=state.meals.find(m=>m.id===Number(el.dataset.editMeal));
@@ -1352,6 +1396,7 @@ function updateMealSourceUI(){
 }
 function openMeal(prefill){
   state.editingMealId=null;
+  $('#mealDate').value=prefill?.date||state.selectedDate||todayStr();
   $('#mealType').value=prefill?.type||'점심';
   const owner=prefill?.owner||'yj';
   const ownerRadio=$(`input[name="mealOwner"][value="${owner}"]`);
@@ -1369,6 +1414,7 @@ function openMeal(prefill){
 function openMealForEdit(meal){
   state.editingMealId=meal.id;
   state.selectedDate=meal.date||state.selectedDate||'2026-08-22';
+  $('#mealDate').value=meal.date||state.selectedDate||todayStr();
   $('#mealType').value=meal.type||'점심';
   const owner=meal.owner||'yj';
   const ownerRadio=$(`input[name="mealOwner"][value="${owner}"]`);
@@ -1384,6 +1430,7 @@ function openMealForEdit(meal){
 }
 
 function saveMeal(){
+  const targetDate=$('#mealDate').value||state.selectedDate||todayStr();
   const type=$('#mealType').value;
   const owner=$('input[name="mealOwner"]:checked')?.value||'yj';
   const source=$('#mealSource').value;
@@ -1401,14 +1448,14 @@ function saveMeal(){
 
   const sameSlot=state.meals.filter(m=>
     m.id!==editingId &&
-    (m.date||'2026-08-22')===state.selectedDate &&
+    (m.date||'2026-08-22')===targetDate &&
     m.type===type
   );
 
   if(owner==='shared'){
     const conflicts=sameSlot.filter(m=>m.owner==='yj'||m.owner==='hj'||!m.owner);
     if(conflicts.length && !confirm(`${type}에 YJ/HJ 개인 식단이 이미 있어요.\n'함께' 식단으로 바꾸면 기존 개인 식단을 삭제해요.\n계속할까요?`)) return;
-    state.meals=state.meals.filter(m=>m.id===editingId || !((m.date||'2026-08-22')===state.selectedDate && m.type===type));
+    state.meals=state.meals.filter(m=>m.id===editingId || !((m.date||'2026-08-22')===targetDate && m.type===type));
   }else{
     const shared=sameSlot.find(m=>m.owner==='shared');
     if(shared){
@@ -1421,7 +1468,7 @@ function saveMeal(){
   }
 
   if(currentMeal){
-    currentMeal.date=state.selectedDate;
+    currentMeal.date=targetDate;
     currentMeal.owner=owner;
     currentMeal.type=type;
     currentMeal.name=name;
@@ -1429,10 +1476,12 @@ function saveMeal(){
     currentMeal.kcal=kcal;
     currentMeal.ingredients=ingredients;
   }else{
-    state.meals.push({id:Date.now(),date:state.selectedDate,owner,type,name,source,status:'planned',kcal,ingredients});
+    state.meals.push({id:Date.now(),date:targetDate,owner,type,name,source,status:'planned',kcal,ingredients});
   }
 
   state.editingMealId=null;
+  state.selectedDate=targetDate;
+  state.weekStart=mondayOf(targetDate);
   closeSheets();
   renderAll();
   queueSave();
@@ -1638,6 +1687,32 @@ function undoLastPurchase(){
   renderAll();queueSave();toast('구매 완료를 취소했어요');
 }
 
+function openShopEdit(kind,id){
+  const item=state.shopping[kind]?.find(x=>x.id===id && !x.done); if(!item)return;
+  state.editingShopKind=kind; state.editingShopId=id;
+  $('#editShopType').value=kind; $('#editShopName').value=item.name||''; $('#editShopQty').value=item.qty||'';
+  $('#editShopUnit').value=item.unit||'개'; $('#editShopMemo').value=item.memo||'';
+  openSheet('shopEditSheet');
+}
+function saveShopEdit(){
+  const oldKind=state.editingShopKind,id=state.editingShopId; if(!oldKind||!id)return;
+  const item=state.shopping[oldKind].find(x=>x.id===id); if(!item)return;
+  const newKind=$('#editShopType').value,name=$('#editShopName').value.trim(),qty=parseFloat($('#editShopQty').value),unit=$('#editShopUnit').value,memo=$('#editShopMemo').value.trim();
+  if(!name||!qty){toast('품목과 수량을 입력해주세요');return}
+  if(newKind!==oldKind){
+    state.shopping[oldKind]=state.shopping[oldKind].filter(x=>x.id!==id);
+    state.shopping[newKind].push({...item,name,qty,unit,memo,done:false});
+  }else{item.name=name;item.qty=qty;item.unit=unit;item.memo=memo}
+  state.editingShopKind=null;state.editingShopId=null;closeSheets();renderAll();queueSave();toast('장보기 항목을 수정했어요');
+}
+function deleteShopItem(){
+  const kind=state.editingShopKind,id=state.editingShopId;if(!kind||!id)return;
+  const item=state.shopping[kind]?.find(x=>x.id===id);if(!item)return;
+  if(!confirm(`${item.name}을(를) 장보기에서 삭제할까요?`))return;
+  state.shopping[kind]=state.shopping[kind].filter(x=>x.id!==id);
+  state.editingShopKind=null;state.editingShopId=null;closeSheets();renderAll();queueSave();toast('장보기 항목을 삭제했어요');
+}
+
 function saveShop(){
   const kind=$('#shopType').value,name=$('#shopName').value.trim(),qty=parseFloat($('#shopQty').value),unit=$('#shopUnit').value,memo=$('#shopMemo').value.trim();
   if(!name||!qty){toast('품목과 수량을 입력해주세요');return}
@@ -1709,12 +1784,19 @@ function renderRecommendations(){
 
 
 $('#prevWeekBtn').addEventListener('click',()=>shiftWeek(-1));
+$('#todayWeekBtn').addEventListener('click',()=>{
+  const today=todayStr();
+  state.selectedDate=today;
+  state.weekStart=mondayOf(today);
+  renderWeekNav();renderMeals();queueSave();
+});
 $('#nextWeekBtn').addEventListener('click',()=>shiftWeek(1));
 $('#weekFullBtn').addEventListener('click',()=>{
   renderWeekOverview();
   openSheet('weekOverviewSheet');
 });
 
+$('#refreshBtn').addEventListener('click',()=>location.reload());
 $$('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
 $$('.tab').forEach(t=>t.addEventListener('click',()=>{$$('.tab').forEach(x=>x.classList.toggle('active',x===t));$$('.pane').forEach(p=>p.classList.toggle('active',p.id===t.dataset.tab))}));
 $$('.chip').forEach(c=>c.addEventListener('click',()=>{state.fridgeFilter=c.dataset.filter;$$('.chip').forEach(x=>x.classList.toggle('active',x===c));renderFridge()}));
@@ -1723,7 +1805,7 @@ $$('.close-sheet').forEach(b=>b.addEventListener('click',()=>{
   closeSheets();
 }));
 $$('.sheetbg').forEach(s=>s.addEventListener('click',e=>{if(e.target===s)closeSheets()}));
-$$('.open-meal').forEach(b=>b.addEventListener('click',()=>openMeal()));
+$$('.open-meal').forEach(b=>b.addEventListener('click',()=>openMeal({date:state.selectedDate,type:'점심',owner:'yj',source:'cook'})));
 $$('.open-shop-add').forEach(b=>b.addEventListener('click',()=>openSheet('shopAddSheet')));
 $$('.open-fridge-add').forEach(b=>b.addEventListener('click',()=>openSheet('fridgeAddSheet')));
 $$('.open-rec').forEach(b=>b.addEventListener('click',()=>{renderRecommendations();openSheet('recSheet')}));
@@ -1733,6 +1815,8 @@ $('#confirmEat').addEventListener('click',confirmEat);
 $('#restoreDelete').addEventListener('click',()=>restoreAndDelete(true));
 $('#keepDelete').addEventListener('click',()=>restoreAndDelete(false));
 $('#saveShop').addEventListener('click',saveShop);
+$('#saveShopEdit').addEventListener('click',saveShopEdit);
+$('#deleteShopItem').addEventListener('click',deleteShopItem);
 $('#undoBtn').addEventListener('click',undoLastPurchase);
 $('#historyToggle').addEventListener('click',()=>{const p=$('#historyPanel');p.classList.toggle('show');$('#historyToggle').textContent=p.classList.contains('show')?'최근 구매 내역 닫기':'최근 구매 내역 보기';});
 $('#saveFridge').addEventListener('click',saveFridge);
