@@ -581,6 +581,24 @@ h2{font-size:18px;margin:0}
 .eval-tag{font-size:10px;padding:5px 7px;border-radius:999px;background:#f1f4f0;color:#667064;font-weight:800}
 .eval-tag.warn{background:#fbefe7;color:#ad6138}
 </style>
+
+<style>
+.eval-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.eval-card{border:1px solid var(--line);border-radius:16px;padding:13px;background:#fff;min-width:0}
+.eval-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.eval-person{font-size:18px;font-weight:900}
+.eval-grade{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:900;white-space:nowrap}
+.eval-grade.good{background:#eaf4e7;color:#557451}
+.eval-grade.mid{background:#f2f3ef;color:#73796e}
+.eval-grade.low{background:#fbede6;color:#a95f3a}
+.eval-lines{display:grid;gap:6px}
+.eval-line{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;line-height:1.3}
+.eval-line span:first-child{color:var(--muted)}
+.eval-line b{font-size:11px;text-align:right}
+.eval-feedback{margin-top:10px;padding-top:10px;border-top:1px solid #edf0ea;font-size:11px;line-height:1.45;color:#4f574c}
+.eval-protein-note{margin-top:7px;font-size:10px;color:#8a9187;line-height:1.4}
+@media(max-width:390px){.eval-wrap{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 
@@ -655,9 +673,9 @@ h2{font-size:18px;margin:0}
     <div id="mealPlans"></div>
 
     <div class="composition">
-      <div class="section-head"><div><h2>오늘 식단 평가</h2><div class="sub" style="margin-top:4px">YJ · HJ 각각 1인 기준으로 봐요.</div></div><span class="badge">참고용</span></div>
+      <div class="section-head"><div><h2>오늘 식단 평가 🌿</h2><div class="sub" style="margin-top:4px">YJ · HJ 각각 하루 식단 기준으로 간단히 봐요.</div></div><span class="badge">참고용</span></div>
       <div class="comp-grid" id="compositionGrid"></div>
-      <div class="sub" style="margin-top:10px">※ 단백질은 등록한 식재료 중 추정 가능한 재료를 기준으로 계산하며, 함께 식단은 2인분으로 나눠 반영해요.</div>
+      <div class="sub" style="margin-top:10px">※ 메뉴·재료 구성 기반의 간단 평가예요. 단백질 g은 추정 가능한 식재료만 계산해요.</div>
     </div>
 
     
@@ -1166,6 +1184,7 @@ function estimatedProteinForIngredient(stock,qty){
   }
   return 0;
 }
+
 function personMealsForEval(dayMeals,owner){
   return dayMeals.filter(m=>m.owner===owner || m.owner==='shared');
 }
@@ -1179,37 +1198,83 @@ function estimatePersonProtein(dayMeals,owner){
   });
   return Math.round(total);
 }
-function personVegCount(dayMeals,owner){
-  const vegPattern=/배추|양배추|상추|깻잎|시금치|브로콜리|버섯|팽이|양파|대파|파프리카|오이|토마토|당근|김치|무|콩나물|숙주|애호박|채소|야채/;
-  const names=new Set();
+function ingredientNamesFor(dayMeals,owner){
+  const names=[];
   personMealsForEval(dayMeals,owner).forEach(m=>(m.ingredients||[]).forEach(i=>{
-    const s=stockById(i.stockId);
-    if(s && vegPattern.test(s.name||'')) names.add(s.name);
+    const s=stockById(i.stockId); if(s) names.push(s.name||'');
   }));
-  return names.size;
+  return names;
 }
-function personSalty(dayMeals,owner){
-  return personMealsForEval(dayMeals,owner).some(m=>/김치|찌개|국|탕|라면|마라|짬뽕|샤브|볶음|덮밥/.test(m.name||''));
+function evalFlags(dayMeals,owner){
+  const meals=personMealsForEval(dayMeals,owner);
+  const names=ingredientNamesFor(dayMeals,owner);
+  const menuText=meals.map(m=>m.name||'').join(' ');
+  const sources=meals.map(m=>m.source||'cook');
+
+  const proteinPat=/계란|달걀|닭|소고기|쇠고기|우삼겹|돼지|삼겹|목살|생선|연어|참치|두부|요거트|그릭|우유|치즈|콩|새우|오징어/;
+  const vegPat=/배추|양배추|상추|깻잎|시금치|브로콜리|버섯|팽이|양파|대파|파프리카|오이|토마토|당근|김치|무|콩나물|숙주|호박|채소|야채|샐러드/;
+  const carbPat=/밥|면|라면|우동|국수|파스타|빵|떡|감자|고구마|시리얼|그래놀라/;
+  const heavyPat=/튀김|치킨|돈까스|돈가스|볶음|크림|치즈|삼겹살|곱창|마라|피자|햄버거/;
+  const processedPat=/햄|소시지|스팸|라면|떡볶이|핫도그|햄버거|피자|가공/;
+
+  const protein=names.some(n=>proteinPat.test(n)) || proteinPat.test(menuText);
+  const vegNames=names.filter(n=>vegPat.test(n));
+  const vegCount=new Set(vegNames).size;
+  const veg=vegCount>0 || vegPat.test(menuText);
+  const carbPresent=carbPat.test(menuText) || names.some(n=>carbPat.test(n));
+  const carbHeavy=carbPresent && !protein;
+  const heavy=heavyPat.test(menuText);
+  const external=sources.filter(s=>s==='delivery'||s==='outside').length;
+  const processed=processedPat.test(menuText);
+
+  return {protein,veg,vegCount,carbHeavy,heavy,external,processed};
+}
+function scoreEval(f){
+  let score=0;
+  if(f.protein) score++;
+  if(f.veg) score++;
+  if(!f.carbHeavy) score++;
+  if(!f.heavy) score++;
+  if(f.external===0 && !f.processed) score++;
+  return score;
+}
+function gradeFor(score){
+  if(score>=4) return {label:'좋음',cls:'good'};
+  if(score>=2.5) return {label:'보통',cls:'mid'};
+  return {label:'아쉬움',cls:'low'};
+}
+function feedbackFor(f){
+  if(f.protein && f.veg && !f.heavy && f.external===0) return '단백질과 채소가 잘 포함된 균형 잡힌 식사예요.';
+  if(f.carbHeavy) return '탄수화물 비중이 높은 편이에요. 단백질이나 채소를 추가해보세요.';
+  if(f.heavy) return '기름진 메뉴 비중이 있어요. 다음 끼니는 조금 담백하게 구성해보세요.';
+  if(!f.protein && !f.veg) return '단백질과 채소가 모두 부족해 보여요. 한 가지씩만 추가해도 좋아요.';
+  if(!f.protein) return '단백질 식품이 조금 부족해 보여요. 달걀·두부·고기류를 보충해보세요.';
+  if(!f.veg) return '채소가 부족해 보여요. 다음 끼니에 채소 한두 가지를 더해보세요.';
+  if(f.external>=2) return '배달·외식 비중이 높은 날이에요. 다음 끼니는 원재료 중심으로 챙겨보세요.';
+  return '전체적으로 무난한 구성이에요. 한 끼만 더 균형 있게 챙기면 좋아요.';
 }
 function renderPersonEval(dayMeals,owner){
   const label=owner==='yj'?'YJ':'HJ';
-  const protein=estimatePersonProtein(dayMeals,owner);
-  const target=60;
-  const shortage=Math.max(0,target-protein);
-  const veg=personVegCount(dayMeals,owner);
-  const salty=personSalty(dayMeals,owner);
-  const registered=personMealsForEval(dayMeals,owner).length;
-  const proteinText=shortage>0
-    ? `약 ${protein}g · 참고 목표까지 약 ${shortage}g 부족`
-    : `약 ${protein}g · 참고 목표 충족`;
-  return `<div class="person-eval">
-    <div class="person-eval-head"><b>${label}</b><span class="eval-protein">단백질 ${proteinText}</span></div>
-    <div class="eval-tags">
-      <span class="eval-tag">${registered}끼 등록</span>
-      <span class="eval-tag ${veg<2?'warn':''}">채소 ${veg}종</span>
-      ${salty?'<span class="eval-tag warn">짠 메뉴 가능성</span>':'<span class="eval-tag">짠 메뉴 적음</span>'}
+  const f=evalFlags(dayMeals,owner);
+  const grade=gradeFor(scoreEval(f));
+  const proteinG=estimatePersonProtein(dayMeals,owner);
+  const proteinShort=Math.max(0,60-proteinG);
+  const vegText=f.veg ? (f.vegCount>=2?`${f.vegCount}종`:'포함') : '부족';
+
+  return `<div class="eval-card">
+    <div class="eval-top">
+      <span class="eval-person">${label}</span>
+      <span class="eval-grade ${grade.cls}">${grade.label}</span>
     </div>
-    <div class="eval-note">단백질 참고 목표는 1인 하루 60g으로 계산한 간단한 보드용 추정치예요.</div>
+    <div class="eval-lines">
+      <div class="eval-line"><span>단백질</span><b>${f.protein?'포함':'부족'}</b></div>
+      <div class="eval-line"><span>채소</span><b>${vegText}</b></div>
+      <div class="eval-line"><span>탄수화물 균형</span><b>${f.carbHeavy?'탄수화물 위주':'무난'}</b></div>
+      <div class="eval-line"><span>메뉴 부담도</span><b>${f.heavy?'부담 있음':'무난'}</b></div>
+      <div class="eval-line"><span>가공·외식 정도</span><b>${(f.external>=2||f.processed)?'높은 편':'무난'}</b></div>
+    </div>
+    <div class="eval-feedback">${feedbackFor(f)}</div>
+    <div class="eval-protein-note">추정 단백질 약 ${proteinG}g${proteinShort>0?` · 참고 목표까지 약 ${proteinShort}g 부족`:' · 참고 목표 충족'}</div>
   </div>`;
 }
 
@@ -1222,7 +1287,7 @@ function renderMeals(){
   $('#mealPlans').innerHTML=renderDuoBoard(state.selectedDate,true);
 
   const planned=dayMeals.filter(m=>m.status==='planned').length;
-  $('#compositionGrid').innerHTML=renderPersonEval(dayMeals,'yj')+renderPersonEval(dayMeals,'hj');
+  $('#compositionGrid').innerHTML=`<div class="eval-wrap">${renderPersonEval(dayMeals,'yj')}${renderPersonEval(dayMeals,'hj')}</div>`;
   bindMealButtons();
   bindMealEditTitles();
   bindQuickMealAdd();
